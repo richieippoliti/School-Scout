@@ -1,12 +1,11 @@
 """
-Routes: React app serving and episode search API.
+Routes: React app serving and school search API.
 
 To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
-import json
 import os
 from flask import send_from_directory, request, jsonify
-from models import db, Episode, Review
+from models import db, School
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
@@ -14,22 +13,20 @@ USE_LLM = False
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def json_search(query):
+def school_search(query):
     if not query or not query.strip():
-        query = "Kardashian"
-    results = db.session.query(Episode, Review).join(
-        Review, Episode.id == Review.id
-    ).filter(
-        Episode.title.ilike(f'%{query}%')
+        return []
+    results = School.query.filter(
+        School.summary.ilike(f'%{query}%')
     ).all()
-    matches = []
-    for episode, review in results:
-        matches.append({
-            'title': episode.title,
-            'descr': episode.descr,
-            'imdb_rating': review.imdb_rating
-        })
-    return matches
+    return [
+        {
+            'title': school.name,
+            'descr': school.summary,
+            'imdb_rating': school.avg_rating
+        }
+        for school in results
+    ]
 
 
 def register_routes(app):
@@ -48,8 +45,8 @@ def register_routes(app):
     @app.route("/api/episodes")
     def episodes_search():
         text = request.args.get("title", "")
-        return jsonify(json_search(text))
+        return jsonify(school_search(text))
 
     if USE_LLM:
         from llm_routes import register_chat_route
-        register_chat_route(app, json_search)
+        register_chat_route(app, school_search)
