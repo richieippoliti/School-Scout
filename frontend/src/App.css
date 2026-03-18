@@ -16,24 +16,36 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 60px;
 }
 
-.google-colors {
+.brand-title {
   display: flex;
   align-items: center;
-  font-size: 48px;
+  gap: 12px;
+}
+
+.brand-cap {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.brand-name {
+  margin: 0;
+  font-size: 56px;
   font-family: 'Open Sans', sans-serif;
+  font-weight: 700;
+  color: #C9A800;
+  letter-spacing: -1px;
 }
 
-.google-colors h1 {
-  margin-bottom: 0;
-  margin-right: 3px;
+.brand-subtitle {
+  margin: 6px 0 0;
+  font-size: 16px;
+  color: #888;
+  font-family: 'Open Sans', sans-serif;
+  letter-spacing: 0.5px;
 }
-
-#google-4   { color: #F4B400; }
-#google-3   { color: #4285F4; }
-#google-0-1 { color: #0F9D58; }
-#google-0-2 { color: #DB4437; }
 
 /* ── Search bar ────────────────────────────────────────────────────────────── */
 
@@ -42,7 +54,7 @@
   border: 1px solid #dfe1e5;
   display: flex;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 20px;
   padding: 12px;
   width: 600px;
   cursor: text;
@@ -90,7 +102,7 @@
 
 .episode-title {
   font-size: 1.25rem;
-  color: #1a73e8;
+  color: #C9A800;
   margin-bottom: 0.5rem;
   font-family: 'Kanit', sans-serif;
 }
@@ -141,7 +153,7 @@
 
 .message.user p {
   font-family: 'Kanit', sans-serif;
-  color: #1a73e8;
+  color: #C9A800;
 }
 
 /* ── Loading dots ──────────────────────────────────────────────────────────── */
@@ -230,7 +242,7 @@
 }
 
 @media (max-width: 768px) {
-  .google-colors h1 { font-size: 3rem; }
+  .brand-name { font-size: 3rem; }
   .input-box { width: 90%; }
   #answer-box { padding: 0 1rem; }
   #messages { padding: 0 8px 8px; }
