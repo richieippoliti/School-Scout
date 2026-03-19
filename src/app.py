@@ -33,7 +33,7 @@ def init_db():
         db.create_all()
 
         if School.query.count() == 0:
-            json_file_path = os.path.join(project_root, 'data', '30schools_reviews.json')
+            json_file_path = os.path.join(project_root, 'NicheReviewScraper', 'niche_ivy_reviews.json')
             with open(json_file_path, 'r') as f:
                 data = json.load(f)
 
