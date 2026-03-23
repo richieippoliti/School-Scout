@@ -6,29 +6,75 @@ To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 import os
 from flask import send_from_directory, request, jsonify
 from models import db, School
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # ── AI toggle ────────────────────────────────────────────────────────────────
 USE_LLM = False
 # USE_LLM = True
 # ─────────────────────────────────────────────────────────────────────────────
 
+_vectorizer: TfidfVectorizer | None = None
+_tfidf_matrix = None
+_indexed_schools: list = []
 
-def school_search(query):
+def _build_index():
+    """Fetch all schools and fit the TF-IDF vectorizer."""
+    global _vectorizer, _tfidf_matrix, _indexed_schools
+
+    _indexed_schools = School.query.all()
+    if not _indexed_schools:
+        _vectorizer = None
+        _tfidf_matrix = None
+        return
+    
+    corpus = [school.summary or "" for school in _indexed_schools]
+    _vectorizer = TfidfVectorizer(
+        strip_accents="unicode",
+        lowercase=True,
+        ngram_range=(1, 2),
+        min_df=1,
+        norm = 'l2',
+    )
+    _tfidf_matrix = _vectorizer.fit_transform(corpus)
+    
+def school_search(query, top_k=20, threshold=0.05):
+    """
+    Return up to *top_k* schools whose summaries are most similar to *query*,
+    ranked by cosine similarity.  Results below *threshold* are discarded.
+    """
+    global _vectorizer, _tfidf_matrix, _indexed_schools
+
     if not query or not query.strip():
         return []
-    results = School.query.filter(
-        School.summary.ilike(f'%{query}%')
-    ).all()
+
+    if _vectorizer is None:
+        _build_index()
+
+    if _vectorizer is None:
+        return []
+
+    query_vec = _vectorizer.transform([query.strip()])
+    scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
+
+    ranked = sorted(
+        ((score, school) for score, school in zip(scores, _indexed_schools)
+         if score >= threshold),
+        key=lambda x: x[0],
+        reverse=True,
+    )
+    print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
     return [
         {
-            'title': school.name,
-            'descr': school.summary,
-            'imdb_rating': school.avg_rating
+            "title":       school.name,
+            "descr":       school.summary,
+            "imdb_rating": school.avg_rating,
+            "score":       round(float(score), 4),
         }
-        for school in results
+        for score, school in ranked[:top_k]
     ]
-
-
+    
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
@@ -50,3 +96,5 @@ def register_routes(app):
     if USE_LLM:
         from llm_routes import register_chat_route
         register_chat_route(app, school_search)
+
+

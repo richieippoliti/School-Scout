@@ -6,7 +6,7 @@ from flask import Flask
 load_dotenv()
 from flask_cors import CORS
 from models import db, School
-from routes import register_routes
+from routes import register_routes, _build_index
 
 # src/ directory and project root (one level up)
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -52,9 +52,12 @@ def init_db():
                     avg_rating=round(avg_rating, 2)
                 ))
                 schools_loaded += 1
-
+                
             db.session.commit()
             print(f"Database initialized with {schools_loaded} schools")
+            
+            _build_index()
+            print("TF-IDF index built")
 
 init_db()
 
