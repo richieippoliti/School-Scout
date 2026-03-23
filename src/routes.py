@@ -1,7 +1,5 @@
 """
 Routes: React app serving and school search API.
-
-To enable AI chat, set USE_LLM = True below. See llm_routes.py for AI code.
 """
 import os
 from flask import send_from_directory, request, jsonify
@@ -10,17 +8,14 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ── AI toggle ────────────────────────────────────────────────────────────────
+# AI toggle
 USE_LLM = False
 # USE_LLM = True
-# ─────────────────────────────────────────────────────────────────────────────
-
 _vectorizer: TfidfVectorizer | None = None
 _tfidf_matrix = None
 _indexed_schools: list = []
 
 def _build_index():
-    """Fetch all schools and fit the TF-IDF vectorizer."""
     global _vectorizer, _tfidf_matrix, _indexed_schools
 
     _indexed_schools = School.query.all()
@@ -40,18 +35,11 @@ def _build_index():
     _tfidf_matrix = _vectorizer.fit_transform(corpus)
     
 def school_search(query, top_k=20, threshold=0.05):
-    """
-    Return up to *top_k* schools whose summaries are most similar to *query*,
-    ranked by cosine similarity.  Results below *threshold* are discarded.
-    """
     global _vectorizer, _tfidf_matrix, _indexed_schools
-
     if not query or not query.strip():
         return []
-
     if _vectorizer is None:
         _build_index()
-
     if _vectorizer is None:
         return []
 
@@ -60,7 +48,7 @@ def school_search(query, top_k=20, threshold=0.05):
 
     ranked = sorted(
         ((score, school) for score, school in zip(scores, _indexed_schools)
-         if score >= threshold),
+         if score >= threshold), # Results below threshold discarded
         key=lambda x: x[0],
         reverse=True,
     )
@@ -83,7 +71,6 @@ def register_routes(app):
             return send_from_directory(app.static_folder, path)
         else:
             return send_from_directory(app.static_folder, 'index.html')
-
     @app.route("/api/config")
     def config():
         return jsonify({"use_llm": USE_LLM})
@@ -96,5 +83,3 @@ def register_routes(app):
     if USE_LLM:
         from llm_routes import register_chat_route
         register_chat_route(app, school_search)
-
-

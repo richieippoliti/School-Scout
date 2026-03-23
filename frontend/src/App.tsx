@@ -49,7 +49,7 @@ function App(): JSX.Element {
           <div key={index} className="episode-item">
             <h3 className="episode-title">{episode.title}</h3>
             <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">Match Score: {episode.imdb_rating}</p>
+            <p className="episode-rating">Match Score: {(episode.score * 100).toFixed(1)}%</p>
           </div>
         ))}
       </div>
