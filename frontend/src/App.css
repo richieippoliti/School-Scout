@@ -93,21 +93,21 @@
   margin-top: 2rem;
 }
 
-.episode-item {
+.school-item {
   padding: 1.5rem;
   background-color: #f8f9fa;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.episode-title {
+.school-title {
   font-size: 1.25rem;
   color: #C9A800;
   margin-bottom: 0.5rem;
   font-family: 'Kanit', sans-serif;
 }
 
-.episode-desc {
+.school-desc {
   font-size: 1rem;
   color: #3c4043;
   line-height: 1.6;
@@ -115,7 +115,7 @@
   font-family: 'Montserrat', sans-serif;
 }
 
-.episode-rating {
+.school-score {
   font-size: 0.9rem;
   color: #5f6368;
   font-weight: 600;

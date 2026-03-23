@@ -1,6 +1,5 @@
-export interface Episode {
+export interface School {
   title: string;
   descr: string;
-  imdb_rating: number;
   score: number;
 }

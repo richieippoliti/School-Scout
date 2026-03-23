@@ -55,10 +55,9 @@ def school_search(query, top_k=20, threshold=0.05):
     print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
     return [
         {
-            "title":       school.name,
-            "descr":       school.summary,
-            "imdb_rating": school.avg_rating,
-            "score":       round(float(score), 4),
+            "title": school.name,
+            "descr": school.summary,
+            "score": round(float(score), 4),
         }
         for score, school in ranked[:top_k]
     ]
@@ -75,9 +74,9 @@ def register_routes(app):
     def config():
         return jsonify({"use_llm": USE_LLM})
 
-    @app.route("/api/episodes")
-    def episodes_search():
-        text = request.args.get("title", "")
+    @app.route("/api/schools")
+    def schools_search():
+        text = request.args.get("query", "")
         return jsonify(school_search(text))
 
     if USE_LLM:

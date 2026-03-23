@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import SearchIcon from './assets/mag.png'
-import { Episode } from './types'
+import { School } from './types'
 import Chat from './Chat'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [schools, setSchools] = useState<School[]>([])
 
   useEffect(() => {
     fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
@@ -15,10 +15,10 @@ function App(): JSX.Element {
 
   const handleSearch = async (value: string): Promise<void> => {
     setSearchTerm(value)
-    if (value.trim() === '') { setEpisodes([]); return }
-    const response = await fetch(`/api/episodes?title=${encodeURIComponent(value)}`)
-    const data: Episode[] = await response.json()
-    setEpisodes(data)
+    if (value.trim() === '') { setSchools([]); return }
+    const response = await fetch(`/api/schools?query=${encodeURIComponent(value)}`)
+    const data: School[] = await response.json()
+    setSchools(data)
   }
 
   if (useLlm === null) return <></>
@@ -45,11 +45,11 @@ function App(): JSX.Element {
 
       {/* Search results (always shown) */}
       <div id="answer-box">
-        {episodes.map((episode, index) => (
-          <div key={index} className="episode-item">
-            <h3 className="episode-title">{episode.title}</h3>
-            <p className="episode-desc">{episode.descr}</p>
-            <p className="episode-rating">Match Score: {(episode.score * 100).toFixed(1)}%</p>
+        {schools.map((school, index) => (
+          <div key={index} className="school-item">
+            <h3 className="school-title">{school.title}</h3>
+            <p className="school-desc">{school.descr}</p>
+            <p className="school-score">Match Score: {(school.score * 100).toFixed(1)}%</p>
           </div>
         ))}
       </div>
