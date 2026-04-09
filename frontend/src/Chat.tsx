@@ -6,7 +6,6 @@
  * to update the search bar and results above.
  */
 import { useState, useRef, useEffect } from 'react'
-import SearchIcon from './assets/mag.png'
 
 interface Message {
   text: string
@@ -109,7 +108,7 @@ function Chat({ onSearchTerm }: ChatProps): JSX.Element {
 
       <div className="chat-bar">
         <form className="input-row" onSubmit={sendMessage}>
-          <img src={SearchIcon} alt="" />
+          <span aria-hidden="true">💬</span>
           <input
             type="text"
             placeholder="Ask the AI about finding your perfect college..."

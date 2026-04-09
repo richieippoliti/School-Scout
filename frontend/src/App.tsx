@@ -1,62 +1,80 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import SearchIcon from './assets/mag.png'
 import { School } from './types'
-import Chat from './Chat'
+import { fetchConfig, fetchSchools } from './api/schools'
+import SearchPage from './components/SearchPage'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [schools, setSchools] = useState<School[]>([])
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
+  const [hoveredSchoolId, setHoveredSchoolId] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(data => setUseLlm(data.use_llm))
+    fetchConfig()
+      .then((data) => setUseLlm(data.use_llm))
+      .catch(() => {
+        setUseLlm(false)
+        setError('Unable to load app configuration.')
+      })
   }, [])
 
-  const handleSearch = async (value: string): Promise<void> => {
-    setSearchTerm(value)
-    if (value.trim() === '') { setSchools([]); return }
-    const response = await fetch(`/api/schools?query=${encodeURIComponent(value)}`)
-    const data: School[] = await response.json()
-    setSchools(data)
+  const runSearch = async (value: string): Promise<void> => {
+    const trimmedValue = value.trim()
+    setError(null)
+
+    if (trimmedValue === '') {
+      setSchools([])
+      setSelectedSchoolId(null)
+      setHoveredSchoolId(null)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const data = await fetchSchools(trimmedValue)
+      setSchools(data)
+      setSelectedSchoolId(data[0]?.id ?? null)
+      setHoveredSchoolId(null)
+    } catch {
+      setSchools([])
+      setSelectedSchoolId(null)
+      setHoveredSchoolId(null)
+      setError('Search request failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmitSearch = (): void => {
+    void runSearch(searchTerm)
+  }
+
+  const handleChatSearchTerm = (term: string): void => {
+    setSearchTerm(term)
+    void runSearch(term)
   }
 
   if (useLlm === null) return <></>
 
   return (
-    <div className={`full-body-container ${useLlm ? 'llm-mode' : ''}`}>
-      {/* Search bar (always shown) */}
-      <div className="top-text">
-        <div className="brand-title">
-          <span className="brand-cap">🎓</span>
-          <h1 className="brand-name">SchoolScout</h1>
-        </div>
-        <p className="brand-subtitle">Find your perfect college match</p>
-        <div className="input-box" onClick={() => document.getElementById('search-input')?.focus()}>
-          <img src={SearchIcon} alt="search" />
-          <input
-            id="search-input"
-            placeholder="Describe your dream school (e.g. warm weather, big sports culture)"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Search results (always shown) */}
-      <div id="answer-box">
-        {schools.map((school, index) => (
-          <div key={index} className="school-item">
-            <h3 className="school-title">{school.title}</h3>
-            <p className="school-desc">{school.descr}</p>
-            <p className="school-score">Match Score: {(school.score * 100).toFixed(1)}%</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Chat (only when USE_LLM = True in routes.py) */}
-      {useLlm && <Chat onSearchTerm={handleSearch} />}
-    </div>
+    <SearchPage
+      useLlm={useLlm}
+      query={searchTerm}
+      schools={schools}
+      loading={loading}
+      error={error}
+      selectedSchoolId={selectedSchoolId}
+      hoveredSchoolId={hoveredSchoolId}
+      onQueryChange={setSearchTerm}
+      onSubmitSearch={handleSubmitSearch}
+      onSelectSchool={setSelectedSchoolId}
+      onHoverSchool={setHoveredSchoolId}
+      onChatSearchTerm={handleChatSearchTerm}
+    />
   )
 }
 
