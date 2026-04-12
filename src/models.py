@@ -7,6 +7,7 @@ class School(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256), nullable=False)
     summary = db.Column(db.Text, nullable=False)
+    reviews_json = db.Column(db.Text, nullable=True)  # Stores reviews as JSON string
     avg_rating = db.Column(db.Float, nullable=False)
     city = db.Column(db.String(128), nullable=True)
     state = db.Column(db.String(64), nullable=True)

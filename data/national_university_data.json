@@ -3669,8 +3669,6 @@
         "reviewer_type": "Sophomore"
       }
     ],
-    "city": "Providence",
-    "state": "RI",
     "latitude": 41.8267718,
     "longitude": -71.4025482
   },
@@ -6274,8 +6272,6 @@
         "reviewer_type": "Senior"
       }
     ],
-    "city": "New York",
-    "state": "NY",
     "latitude": 40.8075355,
     "longitude": -73.9625727
   },

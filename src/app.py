@@ -163,6 +163,8 @@ def migrate_school_columns():
         statements.append('ALTER TABLE schools ADD COLUMN tuition INTEGER')
     if 'enrollment' not in cols:
         statements.append('ALTER TABLE schools ADD COLUMN enrollment INTEGER')
+    if 'reviews_json' not in cols:
+        statements.append('ALTER TABLE schools ADD COLUMN reviews_json TEXT')
     if not statements:
         return
     with db.engine.begin() as conn:
@@ -187,8 +189,8 @@ def init_db():
             schools_loaded = 0
             for i, school in enumerate(data):
                 reviews = school.get('reviews', [])
-                if not reviews or not school.get('ai_summary'):
-                    continue  # skipping schools w no summary for now while greg scrapes more
+                if not school.get('ai_summary'):
+                    continue  # skip schools without AI summary
 
                 avg_rating = sum(r['rating'] for r in reviews) / len(reviews)
                 city, state, lat, lng, acc, tuition, enrollment = _geo_bundle_from_school_json(school)
@@ -197,6 +199,7 @@ def init_db():
                     id=i,
                     name=school['school_name'],
                     summary=school['ai_summary'],
+                    reviews_json=json.dumps(reviews),
                     avg_rating=round(avg_rating, 2),
                     city=city,
                     state=state,

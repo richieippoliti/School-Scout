@@ -2,10 +2,11 @@
 Routes: React app serving and school search API.
 """
 import os
+import json
 from flask import send_from_directory, request, jsonify
 from models import db, School
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 # AI toggle
@@ -13,18 +14,36 @@ USE_LLM = False
 # USE_LLM = True
 _vectorizer: TfidfVectorizer | None = None
 _tfidf_matrix = None
+_svd: TruncatedSVD | None = None
+_doc_lsa = None  # document vectors in reduced space (LSA)
 _indexed_schools: list = []
 
 def _build_index():
-    global _vectorizer, _tfidf_matrix, _indexed_schools
+    global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
 
     _indexed_schools = School.query.all()
     if not _indexed_schools:
         _vectorizer = None
         _tfidf_matrix = None
+        _svd = None
+        _doc_lsa = None
         return
     
-    corpus = [school.summary or "" for school in _indexed_schools]
+    # Build corpus from all reviews for each school, not just the summary
+    corpus = []
+    for school in _indexed_schools:
+        reviews_text = ""
+        if school.reviews_json:
+            try:
+                reviews = json.loads(school.reviews_json)
+                reviews_text = " ".join([review.get('text', '') for review in reviews if review.get('text')])
+            except (json.JSONDecodeError, TypeError):
+                reviews_text = ""
+        
+        # Combine reviews with summary for better coverage
+        combined_text = (reviews_text + " " + (school.summary or "")).strip()
+        corpus.append(combined_text)
+    
     _vectorizer = TfidfVectorizer(
         strip_accents="unicode",
         lowercase=True,
@@ -33,9 +52,18 @@ def _build_index():
         norm = 'l2',
     )
     _tfidf_matrix = _vectorizer.fit_transform(corpus)
+
+    _svd = None
+    _doc_lsa = None
+    n_samples, n_features = _tfidf_matrix.shape
+    # LSA / truncated SVD on TF-IDF (same vocabulary; query projected into topic space)
+    max_components = min(n_samples - 1, n_features - 1, 128)
+    if max_components >= 1:
+        _svd = TruncatedSVD(n_components=max_components, random_state=42)
+        _doc_lsa = _svd.fit_transform(_tfidf_matrix)
     
-def school_search(query, top_k=20, threshold=0.05):
-    global _vectorizer, _tfidf_matrix, _indexed_schools
+def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
+    global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
     if not query or not query.strip():
         return []
     if _vectorizer is None:
@@ -43,8 +71,16 @@ def school_search(query, top_k=20, threshold=0.05):
     if _vectorizer is None:
         return []
 
+    m = (metric or "tfidf").strip().lower()
+    if m not in ("tfidf", "svd"):
+        m = "tfidf"
+
     query_vec = _vectorizer.transform([query.strip()])
-    scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
+    if m == "svd" and _svd is not None and _doc_lsa is not None:
+        q_lsa = _svd.transform(query_vec)
+        scores = cosine_similarity(q_lsa, _doc_lsa).flatten()
+    else:
+        scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
 
     ranked = sorted(
         ((score, school) for score, school in zip(scores, _indexed_schools)
@@ -74,10 +110,6 @@ def school_search(query, top_k=20, threshold=0.05):
             "enrollment": school.enrollment,
         }
 
-    # Reload result rows from DB so lat/lng edits (e.g. in SQLite) show up without stale ORM cache.
-    for _, s in ranked[:top_k]:
-        db.session.refresh(s)
-
     return [_school_payload(score, school) for score, school in ranked[:top_k]]
     
 def register_routes(app):
@@ -95,7 +127,8 @@ def register_routes(app):
     @app.route("/api/schools")
     def schools_search():
         text = request.args.get("query", "")
-        return jsonify(school_search(text))
+        metric = request.args.get("metric", "tfidf")
+        return jsonify(school_search(text, metric=metric))
 
     if USE_LLM:
         from llm_routes import register_chat_route
