@@ -18,6 +18,60 @@ _svd: TruncatedSVD | None = None
 _doc_lsa = None  # document vectors in reduced space (LSA)
 _indexed_schools: list = []
 
+def _load_spacy():
+    """Lazy-load spaCy small English model. Returns None if unavailable."""
+    try:
+        import spacy
+        # disable everything except the dependency parser — we don't need
+        # NER or the tagger, and this makes processing ~3x faster.
+        return spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
+    except (ImportError, OSError):
+        return None
+ 
+_nlp = _load_spacy()
+
+
+def _apply_negation_marking(text: str) -> str:
+    """
+    Return text with negated tokens prefixed by NOT_.
+ 
+    Uses spaCy's dependency tree when available:
+      - finds every token whose dependency label is "neg"
+      - prefixes that token's syntactic HEAD with NOT_
+      - this correctly handles "not only safe" (head=safe) vs the window
+        approach which would mark "only" and "safe" both
+    """
+    return _apply_negation_marking_spacy(text)
+ 
+ 
+def _apply_negation_marking_spacy(text: str) -> str:
+    """
+    spaCy dependency-tree negation marking.
+ 
+    For every negation token (dep_ == "neg"), mark its head word with NOT_.
+    The negation token itself is dropped so it doesn't pollute the vocabulary.
+ 
+    Example parse of "not safe campus":
+        not   -> dep_="neg",  head="safe"
+        safe  -> dep_="amod", head="campus"   <- gets marked NOT_safe
+        campus-> dep_="ROOT"
+    """
+    doc = _nlp(text)
+ 
+    # Collect indices of tokens whose HEAD should be marked
+    negated_heads = {token.head.i for token in doc if token.dep_ == "neg"}
+ 
+    tokens = []
+    for token in doc:
+        if token.dep_ == "neg":
+            continue
+        if token.i in negated_heads:
+            tokens.append(f"NOT_{token.lemma_.lower()}")
+        else:
+            tokens.append(token.text.lower())
+ 
+    return " ".join(tokens)
+
 def _build_index():
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
 
@@ -42,7 +96,7 @@ def _build_index():
         
         # Combine reviews with summary for better coverage
         combined_text = (reviews_text + " " + (school.summary or "")).strip()
-        corpus.append(combined_text)
+        corpus.append(_apply_negation_marking(combined_text))
     
     _vectorizer = TfidfVectorizer(
         strip_accents="unicode",
