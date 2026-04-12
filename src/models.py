@@ -2,22 +2,20 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# Define Episode model
-class Episode(db.Model):
-    __tablename__ = 'episodes'
+class School(db.Model):
+    __tablename__ = 'schools'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(64), nullable=False)
-    descr = db.Column(db.String(1024), nullable=False)
-    
-    def __repr__(self):
-        return f'Episode {self.id}: {self.title}'
+    name = db.Column(db.String(256), nullable=False)
+    summary = db.Column(db.Text, nullable=False)
+    reviews_json = db.Column(db.Text, nullable=True)  # Stores reviews as JSON string
+    avg_rating = db.Column(db.Float, nullable=False)
+    city = db.Column(db.String(128), nullable=True)
+    state = db.Column(db.String(64), nullable=True)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    acceptance_rate = db.Column(db.Float, nullable=True)
+    tuition = db.Column(db.Integer, nullable=True)
+    enrollment = db.Column(db.Integer, nullable=True)
 
-# Define Review model
-class Review(db.Model):
-    __tablename__ = 'reviews'
-    id = db.Column(db.Integer, primary_key=True)
-    imdb_rating = db.Column(db.Float, nullable=False)
-    
     def __repr__(self):
-        return f'Review {self.id}: {self.imdb_rating}'
-
+        return f'School {self.id}: {self.name}'

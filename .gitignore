@@ -19,6 +19,7 @@ node_modules/
 frontend/dist/
 frontend/node_modules/
 package-lock.json
+<<<<<<< HEAD
 .env
 .Rproj.user
 # ignore R session files
@@ -32,3 +33,8 @@ package-lock.json
 # ignore mac system files
 .DS_Store
 p02.qmd
+=======
+
+.env
+.cursorrules
+>>>>>>> 8f7f20345baa0f8f4912fcb3c0b339668812b4d2
