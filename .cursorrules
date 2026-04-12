@@ -1,0 +1,198 @@
+---
+description: Rules for building the college search frontend with a map and query/results panel
+globs:
+  - "app/**/*"
+  - "src/**/*"
+  - "components/**/*"
+  - "pages/**/*"
+alwaysApply: true
+---
+
+You are building the frontend for a college search application.
+
+The core UI layout is:
+- A pannable, zoomable map on the left side taking about 70-75% of the width on desktop
+- A right-side panel taking about 25-30% of the width
+- The right panel contains:
+  - a natural-language query input area
+  - optional structured filters
+  - a ranked list of returned schools
+- When the user submits a query, the app should:
+  - fetch matching schools from the backend
+  - render the schools as cards in the right panel
+  - place markers/pins for those schools on the map
+  - keep the list and map fully synchronized
+
+Primary UX goals:
+- The map answers: "Where are these schools?"
+- The right panel answers: "Why were these schools returned?"
+- The experience should feel exploratory, fast, and visually clean
+- Users should be able to move naturally between map and list
+
+General implementation rules:
+- Write clean, modular, production-style code
+- Prefer small reusable components over one large component
+- Keep state management simple and explicit
+- Use clear naming and avoid unnecessary abstraction
+- Do not add features that are not directly useful to this workflow
+- Favor readability and maintainability over cleverness
+- When making UI decisions, optimize for usability first
+
+Frontend architecture:
+- Separate the UI into presentational and container logic where reasonable
+- Keep API logic out of deeply nested UI components
+- Use shared types/interfaces for school data and query results
+- Centralize map/list synchronization state
+- Avoid prop drilling when it becomes excessive; use context or a lightweight store if needed
+- Prefer derived state over duplicated state
+
+Assume each school object may contain fields like:
+- id
+- name
+- city
+- state
+- latitude
+- longitude
+- matchScore
+- acceptanceRate
+- tuition
+- enrollment
+- majors
+- description
+- tags
+
+Required behaviors:
+- Rendering returned schools as both map markers and list items
+- Clicking a school card highlights/selects the corresponding map marker
+- Clicking a map marker highlights/selects the corresponding school card
+- Hovering a school card should visually emphasize the corresponding marker if practical
+- Selecting a marker should open a popup with basic school information
+- The map should auto-fit bounds to the returned schools when a new result set is loaded
+- If there is only one result, center and zoom appropriately
+- If there are many nearby schools, use marker clustering
+- If coordinates are missing for a school, do not break the UI; render it in the list and omit the marker
+
+Desktop layout rules:
+- Default to split-screen layout
+- The map is the visual anchor of the app
+- The right panel should remain scrollable independent of the map
+- Keep the search input and key filters sticky at the top of the panel when useful
+- Preserve enough width in the panel for readable school cards
+
+Mobile and tablet rules:
+- The layout must become responsive
+- On smaller screens, switch from side-by-side layout to stacked layout or tabbed "Map / List" views
+- Do not force a tiny unreadable side panel on mobile
+- Maintain full functionality on smaller devices
+
+Map rules:
+- Use a well-supported map library appropriate for React apps
+- Prefer a simple implementation with markers, clustering, popups, fitBounds, and controlled selection state
+- Do not put business logic inside marker rendering code
+- Keep map-specific helper logic separate from list rendering logic
+- Avoid excessive rerenders of markers when possible
+- If many markers are present, prioritize performance and clustering
+
+Search and query rules:
+- The search box should support natural-language queries like:
+  "CS schools in the Northeast with good social life and not too rural"
+- The UI should support future expansion for filters such as:
+  - major
+  - region
+  - size
+  - tuition
+  - selectivity
+  - urban/suburban/rural
+- Query submission should have visible loading, success, and error states
+- Empty states should be helpful and user-friendly
+- Do not leave the user wondering whether the search is running
+
+School list/card rules:
+- Each school card should be concise and scannable
+- Cards should prioritize the most decision-relevant information
+- A typical card should show:
+  - school name
+  - city/state
+  - match score if available
+  - one or two key metrics
+  - one short explanation/tagline if available
+- The selected card should have a visibly distinct state
+- The design should support future expansion into a detail drawer or modal
+
+Styling rules:
+- Build a polished but simple modern UI
+- Use consistent spacing, hierarchy, and alignment
+- Avoid clutter
+- Prefer subtle emphasis over loud colors
+- Make interactive states obvious
+- Ensure the right panel feels like a search/recommendation workspace, not a generic sidebar
+- Maintain strong contrast and accessibility
+- Do not use cramped cards or oversized controls
+
+Accessibility rules:
+- All interactive elements must be keyboard accessible
+- Form controls must have labels or accessible names
+- Selected state should not rely on color alone
+- Popups, buttons, and list items should have appropriate semantics
+- Ensure focus states are visible
+
+Performance rules:
+- Avoid unnecessary rerenders of the map and list
+- Memoize expensive derived values when justified
+- Debounce search input only if the UX calls for live querying
+- Prefer explicit submit behavior unless live search is clearly desired
+- Handle large result sets gracefully
+- Use clustering and viewport fitting to improve map usability
+
+Error handling rules:
+- Handle API failures gracefully
+- Show a useful error message in the panel
+- Never crash if one school has malformed or missing data
+- Validate coordinates before rendering markers
+- Use fallbacks for optional fields
+
+Testing expectations:
+- Components with meaningful interaction should be reasonably testable
+- Favor deterministic state transitions
+- Important behaviors to preserve:
+  - selecting from list selects marker
+  - selecting marker selects list item
+  - new results update both map and list
+  - fitBounds runs on new valid map results
+  - missing coordinates do not crash rendering
+
+Suggested component structure:
+- SearchPage / SearchView
+- MapPane
+- ResultsPanel
+- SearchBar
+- FiltersBar
+- SchoolList
+- SchoolCard
+- SchoolMarkerLayer
+- SchoolPopup
+- EmptyState
+- LoadingState
+- ErrorState
+
+Suggested state shape:
+- query
+- filters
+- results
+- selectedSchoolId
+- hoveredSchoolId
+- loading
+- error
+
+Coding style:
+- Prefer explicit interfaces/types for data passed between components
+- Keep components focused on one responsibility
+- Extract helper functions for map bounds, coordinate validation, and result normalization
+- Write code that another engineer can understand quickly
+- When adding a new feature, preserve the map/list synchronization model
+
+When generating code for this project:
+- Follow these product constraints by default
+- Do not replace the split map/panel experience with a totally different layout
+- Do not overengineer the state layer unless the app complexity truly requires it
+- Keep the user flow centered on search -> results list -> geographic exploration

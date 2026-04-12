@@ -1,4 +1,5 @@
 import { School } from '../types'
+import { formatSchoolLocation } from '../utils/location'
 
 interface SchoolCardProps {
   school: School;
@@ -9,8 +10,7 @@ interface SchoolCardProps {
 }
 
 function SchoolCard({ school, isSelected, isHovered, onSelect, onHover }: SchoolCardProps): JSX.Element {
-  const location =
-    school.city && school.state ? `${school.city}, ${school.state}` : school.city ?? school.state ?? null
+  const location = formatSchoolLocation(school)
 
   return (
     <button

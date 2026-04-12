@@ -11,6 +11,9 @@ from bs4 import BeautifulSoup, Tag
 
 from school_list import get_school_list
 
+DEFAULT_JSON_OUTPUT = str(
+    Path(__file__).resolve().parent.parent / "data" / "national_university_data.json"
+)
 
 BASE_HEADERS = {
     "User-Agent": (
@@ -449,7 +452,7 @@ def scrape_school(session: requests.Session, name: str, url: str, review_limit: 
     return school_data
 
 
-def run_scraper(output_path: str = "niche_ivy_reviews.json", review_limit: int = 15) -> None:
+def run_scraper(output_path: str = DEFAULT_JSON_OUTPUT, review_limit: int = 15) -> None:
     """
     Main scraper runner for all 8 Ivy League schools.
     """
@@ -497,7 +500,11 @@ if __name__ == "__main__":
     )
 
     parser = argparse.ArgumentParser(description="Scrape Niche Ivy League college reviews.")
-    parser.add_argument("--output", default="niche_ivy_reviews.json", help="Output JSON filepath.")
+    parser.add_argument(
+        "--output",
+        default=DEFAULT_JSON_OUTPUT,
+        help="Output JSON filepath (default: repo data/national_university_data.json).",
+    )
     parser.add_argument("--limit", type=int, default=15, help="Number of most recent reviews per school.")
     parser.add_argument(
         "--parse-reviews-html",

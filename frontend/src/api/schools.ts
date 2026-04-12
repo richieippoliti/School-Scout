@@ -1,5 +1,21 @@
 import { ConfigResponse, RawSchool, School } from '../types'
 
+function finiteNumber(value: unknown): number | undefined {
+  if (value == null || value === '') return undefined
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const n = Number(value.trim())
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (value == null) return undefined
+  const s = String(value).trim()
+  return s || undefined
+}
+
 function toSchool(raw: RawSchool, index: number): School {
   const title = (raw.title ?? raw.name ?? '').trim() || 'Unknown School'
   const descr = (raw.descr ?? raw.description ?? '').trim() || 'No description available.'
@@ -11,15 +27,13 @@ function toSchool(raw: RawSchool, index: number): School {
     title,
     descr,
     score,
-    name: raw.name,
-    city: raw.city,
-    state: raw.state,
-    latitude: raw.latitude,
-    longitude: raw.longitude,
-    matchScore: raw.matchScore,
-    acceptanceRate: raw.acceptanceRate,
-    tuition: raw.tuition,
-    enrollment: raw.enrollment,
+    name: optionalString(raw.name),
+    latitude: finiteNumber(raw.latitude),
+    longitude: finiteNumber(raw.longitude),
+    matchScore: finiteNumber(raw.matchScore),
+    acceptanceRate: finiteNumber(raw.acceptanceRate ?? raw.acceptance_rate),
+    tuition: finiteNumber(raw.tuition),
+    enrollment: finiteNumber(raw.enrollment),
     majors: raw.majors,
     description: raw.description,
     tags: raw.tags,

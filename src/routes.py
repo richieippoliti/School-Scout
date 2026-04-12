@@ -53,14 +53,32 @@ def school_search(query, top_k=20, threshold=0.05):
         reverse=True,
     )
     print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
-    return [
-        {
+
+    def _json_float(value):
+        """Ensure JSON-serializable native float for coordinates (avoids numpy / Decimal quirks)."""
+        if value is None:
+            return None
+        return float(value)
+
+    def _school_payload(score: float, school: School) -> dict:
+        return {
+            "id": school.id,
             "title": school.name,
+            "name": school.name,
             "descr": school.summary,
             "score": round(float(score), 4),
+            "latitude": _json_float(school.latitude),
+            "longitude": _json_float(school.longitude),
+            "acceptanceRate": _json_float(school.acceptance_rate),
+            "tuition": school.tuition,
+            "enrollment": school.enrollment,
         }
-        for score, school in ranked[:top_k]
-    ]
+
+    # Reload result rows from DB so lat/lng edits (e.g. in SQLite) show up without stale ORM cache.
+    for _, s in ranked[:top_k]:
+        db.session.refresh(s)
+
+    return [_school_payload(score, school) for score, school in ranked[:top_k]]
     
 def register_routes(app):
     @app.route('/', defaults={'path': ''})

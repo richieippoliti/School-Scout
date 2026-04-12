@@ -64,7 +64,7 @@ def register_chat_route(app, school_search):
         if use_search:
             schools = school_search(search_term or "university")
             context_text = "\n\n---\n\n".join(
-                f"School: {s['title']}\nSummary: {s['descr']}\nAvg Rating: {s['imdb_rating']}"
+                f"School: {s['title']}\nSummary: {s['descr']}\nMatch score: {s.get('score')}"
                 for s in schools
             ) or "No matching schools found."
             messages = [

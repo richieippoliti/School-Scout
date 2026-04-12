@@ -3,6 +3,7 @@ import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaf
 import MarkerClusterGroup from 'react-leaflet-markercluster'
 import { School } from '../types'
 import { getBoundsForSchools, getMappableSchools } from '../utils/map'
+import { formatSchoolLocation } from '../utils/location'
 
 interface MapPaneProps {
   schools: School[];
@@ -61,7 +62,7 @@ function MapPane({ schools, selectedSchoolId, hoveredSchoolId, onSelectSchool }:
               >
                 <Popup>
                   <strong>{school.title}</strong>
-                  <div>{school.city && school.state ? `${school.city}, ${school.state}` : 'Location unavailable'}</div>
+                  <div>{formatSchoolLocation(school) ?? 'No location text'}</div>
                   <div>Match: {(school.score * 100).toFixed(1)}%</div>
                 </Popup>
               </CircleMarker>
