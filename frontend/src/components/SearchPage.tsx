@@ -1,5 +1,5 @@
 import Chat from '../Chat'
-import { School } from '../types'
+import { School, SearchMetric } from '../types'
 import MapPane from './MapPane'
 import ResultsPanel from './ResultsPanel'
 import SearchBar from './SearchBar'
@@ -7,6 +7,7 @@ import SearchBar from './SearchBar'
 interface SearchPageProps {
   useLlm: boolean;
   query: string;
+  searchMetric: SearchMetric;
   schools: School[];
   loading: boolean;
   error: string | null;
@@ -14,6 +15,7 @@ interface SearchPageProps {
   hoveredSchoolId: string | null;
   onQueryChange: (value: string) => void;
   onSubmitSearch: () => void;
+  onSearchMetricChange: (metric: SearchMetric) => void;
   onSelectSchool: (schoolId: string) => void;
   onHoverSchool: (schoolId: string | null) => void;
   onChatSearchTerm: (term: string) => void;
@@ -22,6 +24,7 @@ interface SearchPageProps {
 function SearchPage({
   useLlm,
   query,
+  searchMetric,
   schools,
   loading,
   error,
@@ -29,6 +32,7 @@ function SearchPage({
   hoveredSchoolId,
   onQueryChange,
   onSubmitSearch,
+  onSearchMetricChange,
   onSelectSchool,
   onHoverSchool,
   onChatSearchTerm,
@@ -56,16 +60,36 @@ function SearchPage({
           />
         </div>
 
-        <ResultsPanel
-          schools={schools}
-          loading={loading}
-          error={error}
-          query={query}
-          selectedSchoolId={selectedSchoolId}
-          hoveredSchoolId={hoveredSchoolId}
-          onSelectSchool={onSelectSchool}
-          onHoverSchool={onHoverSchool}
-        />
+        <div className="results-pane-scroll">
+          <ResultsPanel
+            schools={schools}
+            loading={loading}
+            error={error}
+            query={query}
+            selectedSchoolId={selectedSchoolId}
+            hoveredSchoolId={hoveredSchoolId}
+            onSelectSchool={onSelectSchool}
+            onHoverSchool={onHoverSchool}
+          />
+        </div>
+
+        <div className="panel-footer metric-footer">
+          <label className="metric-label" htmlFor="search-metric">
+            Ranking
+          </label>
+          <select
+            id="search-metric"
+            className="metric-select"
+            value={searchMetric}
+            onChange={(e) => {
+              onSearchMetricChange(e.target.value as SearchMetric)
+            }}
+            aria-label="Search ranking metric"
+          >
+            <option value="tfidf">TF–IDF (cosine)</option>
+            <option value="svd">SVD / LSA (TF–IDF + SVD)</option>
+          </select>
+        </div>
 
         {useLlm && <Chat onSearchTerm={onChatSearchTerm} />}
       </aside>

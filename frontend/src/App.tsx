@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { School } from './types'
+import { School, SearchMetric } from './types'
 import { fetchConfig, fetchSchools } from './api/schools'
 import SearchPage from './components/SearchPage'
 
 function App(): JSX.Element {
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
+  const [searchMetric, setSearchMetric] = useState<SearchMetric>('tfidf')
   const [schools, setSchools] = useState<School[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
   const [hoveredSchoolId, setHoveredSchoolId] = useState<string | null>(null)
@@ -22,7 +23,7 @@ function App(): JSX.Element {
       })
   }, [])
 
-  const runSearch = async (value: string): Promise<void> => {
+  const executeSearch = async (value: string, metric: SearchMetric): Promise<void> => {
     const trimmedValue = value.trim()
     setError(null)
 
@@ -35,7 +36,7 @@ function App(): JSX.Element {
 
     setLoading(true)
     try {
-      const data = await fetchSchools(trimmedValue)
+      const data = await fetchSchools(trimmedValue, metric)
       setSchools(data)
       setSelectedSchoolId(data[0]?.id ?? null)
       setHoveredSchoolId(null)
@@ -50,12 +51,20 @@ function App(): JSX.Element {
   }
 
   const handleSubmitSearch = (): void => {
-    void runSearch(searchTerm)
+    void executeSearch(searchTerm, searchMetric)
+  }
+
+  const handleSearchMetricChange = (metric: SearchMetric): void => {
+    setSearchMetric(metric)
+    const trimmed = searchTerm.trim()
+    if (trimmed !== '') {
+      void executeSearch(trimmed, metric)
+    }
   }
 
   const handleChatSearchTerm = (term: string): void => {
     setSearchTerm(term)
-    void runSearch(term)
+    void executeSearch(term, searchMetric)
   }
 
   if (useLlm === null) return <></>
@@ -64,6 +73,7 @@ function App(): JSX.Element {
     <SearchPage
       useLlm={useLlm}
       query={searchTerm}
+      searchMetric={searchMetric}
       schools={schools}
       loading={loading}
       error={error}
@@ -71,6 +81,7 @@ function App(): JSX.Element {
       hoveredSchoolId={hoveredSchoolId}
       onQueryChange={setSearchTerm}
       onSubmitSearch={handleSubmitSearch}
+      onSearchMetricChange={handleSearchMetricChange}
       onSelectSchool={setSelectedSchoolId}
       onHoverSchool={setHoveredSchoolId}
       onChatSearchTerm={handleChatSearchTerm}

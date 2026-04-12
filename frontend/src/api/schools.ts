@@ -1,4 +1,4 @@
-import { ConfigResponse, RawSchool, School } from '../types'
+import { ConfigResponse, RawSchool, School, SearchMetric } from '../types'
 
 function finiteNumber(value: unknown): number | undefined {
   if (value == null || value === '') return undefined
@@ -49,8 +49,9 @@ export async function fetchConfig(): Promise<ConfigResponse> {
   return response.json() as Promise<ConfigResponse>
 }
 
-export async function fetchSchools(query: string): Promise<School[]> {
-  const response = await fetch(`/api/schools?query=${encodeURIComponent(query)}`)
+export async function fetchSchools(query: string, metric: SearchMetric = 'tfidf'): Promise<School[]> {
+  const params = new URLSearchParams({ query, metric })
+  const response = await fetch(`/api/schools?${params.toString()}`)
   if (!response.ok) {
     throw new Error(`Search failed (${response.status})`)
   }

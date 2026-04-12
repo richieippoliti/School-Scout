@@ -38,12 +38,56 @@
   width: 28%;
   min-width: 320px;
   max-height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding: 20px 16px 16px;
   gap: 14px;
   background: #fff;
+}
+
+.results-pane-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel-footer.metric-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #ececec;
+}
+
+.metric-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #555;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.metric-select {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #dfe1e5;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  font-family: 'Open Sans', sans-serif;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+}
+
+.metric-select:hover {
+  border-color: #c2c8cf;
+}
+
+.metric-select:focus {
+  outline: 2px solid rgba(201, 168, 0, 0.35);
+  outline-offset: 1px;
+  border-color: #c2c8cf;
 }
 
 .panel-sticky-top {

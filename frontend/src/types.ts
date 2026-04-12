@@ -1,3 +1,6 @@
+/** Retrieval / ranking metric: raw TF-IDF cosine, or LSA (TF-IDF + truncated SVD). */
+export type SearchMetric = 'tfidf' | 'svd';
+
 export interface School {
   id: string;
   title: string;
