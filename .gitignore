@@ -1,29 +1,34 @@
 env/
 .DS_Store
 Docker/__pycache__
-
 venv/
-
 *.pyc
 __pycache__/
-
 instance/
 data.db
-
 .pytest_cache/
 .coverage
 htmlcov/
-
 dist/
 build/
 *.egg-info/
 helpers/*
 json_template/
-
 # Node/React
 node_modules/
 frontend/dist/
 frontend/node_modules/
 package-lock.json
-
 .env
+.Rproj.user
+# ignore R session files
+.Rhistory
+.RData
+~/4300proj/p02/p02_cache/
+~/4300proj/p02/p02.qmd
+~/4300proj/p02/p02.Rproj
+# ignore RStudio project settings
+.Rproj.user/
+# ignore mac system files
+.DS_Store
+p02.qmd
