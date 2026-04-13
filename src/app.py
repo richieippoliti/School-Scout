@@ -192,7 +192,7 @@ def init_db():
                 if not school.get('ai_summary'):
                     continue  # skip schools without AI summary
 
-                avg_rating = sum(r['rating'] for r in reviews) / len(reviews)
+                avg_rating = sum(r['rating'] for r in reviews) / len(reviews) if reviews else 0.0
                 city, state, lat, lng, acc, tuition, enrollment = _geo_bundle_from_school_json(school)
 
                 db.session.add(School(

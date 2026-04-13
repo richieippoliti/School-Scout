@@ -41,6 +41,8 @@ def _apply_negation_marking(text: str) -> str:
       - this correctly handles "not only safe" (head=safe) vs the window
         approach which would mark "only" and "safe" both
     """
+    if _nlp is None:
+        return text
     return _apply_negation_marking_spacy(text)
  
  
