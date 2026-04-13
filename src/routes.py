@@ -120,7 +120,7 @@ def _build_index():
         _doc_lsa = _svd.fit_transform(_tfidf_matrix)
     
 def _get_top_query_terms(query_vec, top_n: int = 8) -> list:
-    """Return the highest-weighted vocabulary terms from a query TF-IDF vector."""
+    """return the highest weighted vocabulary terms from a query TF-IDF vector."""
     feature_names = _vectorizer.get_feature_names_out()
     cx = query_vec.tocsr()
     if cx.nnz == 0:
@@ -136,11 +136,6 @@ def _get_top_query_terms(query_vec, top_n: int = 8) -> list:
 _SENTENCE_RE = re.compile(r'(?<=[.!?])\s+')
 
 def _extract_matching_chunks(school, query_terms: list, max_chunks: int = 2, max_len: int = 160) -> list:
-    """
-    Find up to max_chunks sentences from the school's reviews / summary that
-    contain the most query-relevant terms. Used to show the user *why* a
-    school matched their query.
-    """
     if not query_terms:
         return []
 
@@ -213,7 +208,6 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
     )
     print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
 
-    # Always use TF-IDF terms for chunk extraction (human-readable keywords)
     query_terms = _get_top_query_terms(query_vec)
 
     def _json_float(value):
@@ -260,4 +254,5 @@ def register_routes(app):
 
     if USE_LLM:
         from llm_routes import register_chat_route
-        register_chat_route(app, school_search)
+        register_chat_route(app, school_search)git add -A && git commit -m "Add matching chunks with keyword highlighting and analyzed quality of search pre LLM" && git push origin main
+        
