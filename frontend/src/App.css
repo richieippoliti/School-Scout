@@ -9,7 +9,7 @@
 /* Map pane */
 .map-pane {
   position: relative;
-  width: 72%;
+  width: 60%;
   min-height: 100vh;
   border-right: 1px solid #ececec;
   background: #f3f5f7;
@@ -35,7 +35,7 @@
 
 /* Results pane */
 .results-pane {
-  width: 28%;
+  width: 40%;
   min-width: 320px;
   max-height: 100vh;
   overflow: hidden;
@@ -228,6 +228,41 @@ button.school-item {
   line-height: 1.45;
   margin-bottom: 0.35rem;
   font-family: 'Montserrat', sans-serif;
+}
+
+.school-matched-terms {
+  font-size: 0.78rem;
+  color: #8a6f00;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.school-chunks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 0.35rem;
+  padding-left: 8px;
+  border-left: 3px solid #f4b400;
+}
+
+.school-chunk {
+  font-size: 0.82rem;
+  color: #5f6368;
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.chunk-highlight {
+  font-style: normal;
+  font-weight: 700;
+  color: #7a5c00;
+  background: #fff3cd;
+  border-radius: 2px;
+  padding: 0 2px;
 }
 
 .school-score {

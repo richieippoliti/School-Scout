@@ -18,6 +18,8 @@ export interface School {
   majors?: string[];
   description?: string;
   tags?: string[];
+  matchingChunks?: string[];
+  queryTerms?: string[];
 }
 
 export interface SearchFilters {
@@ -61,4 +63,6 @@ export interface RawSchool {
   majors?: string[];
   description?: string;
   tags?: string[];
+  matchingChunks?: string[];
+  queryTerms?: string[];
 }

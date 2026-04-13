@@ -37,6 +37,8 @@ function toSchool(raw: RawSchool, index: number): School {
     majors: raw.majors,
     description: raw.description,
     tags: raw.tags,
+    matchingChunks: Array.isArray(raw.matchingChunks) ? raw.matchingChunks : undefined,
+    queryTerms: Array.isArray(raw.queryTerms) ? raw.queryTerms : undefined,
   }
 }
 

@@ -2,6 +2,7 @@
 Routes: React app serving and school search API.
 """
 import os
+import re
 import json
 from flask import send_from_directory, request, jsonify
 from models import db, School
@@ -118,6 +119,72 @@ def _build_index():
         _svd = TruncatedSVD(n_components=max_components, random_state=42)
         _doc_lsa = _svd.fit_transform(_tfidf_matrix)
     
+def _get_top_query_terms(query_vec, top_n: int = 8) -> list:
+    """Return the highest-weighted vocabulary terms from a query TF-IDF vector."""
+    feature_names = _vectorizer.get_feature_names_out()
+    cx = query_vec.tocsr()
+    if cx.nnz == 0:
+        return []
+    weights = [(feature_names[j], float(cx[0, j])) for j in cx.indices]
+    weights.sort(key=lambda x: x[1], reverse=True)
+    # Prefer unigrams (readable words); also grab top bigrams for specificity
+    unigrams = [w for w, _ in weights if ' ' not in w and not w.startswith('NOT_')]
+    bigrams  = [w for w, _ in weights if ' '     in w and not w.startswith('NOT_')]
+    return (unigrams + bigrams)[:top_n]
+
+
+_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+')
+
+def _extract_matching_chunks(school, query_terms: list, max_chunks: int = 2, max_len: int = 160) -> list:
+    """
+    Find up to max_chunks sentences from the school's reviews / summary that
+    contain the most query-relevant terms. Used to show the user *why* a
+    school matched their query.
+    """
+    if not query_terms:
+        return []
+
+    sentences = []
+
+    if school.reviews_json:
+        try:
+            reviews = json.loads(school.reviews_json)
+            for review in reviews:
+                text = review.get('text', '')
+                if text:
+                    for s in _SENTENCE_RE.split(text.strip()):
+                        s = s.strip()
+                        if len(s) > 25:
+                            sentences.append(s)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if school.summary:
+        for s in _SENTENCE_RE.split(school.summary.strip()):
+            s = s.strip()
+            if len(s) > 25:
+                sentences.append(s)
+
+    terms_lower = [t.lower() for t in query_terms]
+    seen: set = set()
+    scored = []
+
+    for sent in sentences:
+        sent_lower = sent.lower()
+        score = sum(1 for term in terms_lower if term in sent_lower)
+        if score == 0:
+            continue
+        key = sent_lower[:60]
+        if key in seen:
+            continue
+        seen.add(key)
+        display = sent if len(sent) <= max_len else sent[:max_len].rsplit(' ', 1)[0] + '…'
+        scored.append((score, display))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s for _, s in scored[:max_chunks]]
+
+
 def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
     if not query or not query.strip():
@@ -146,6 +213,9 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
     )
     print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
 
+    # Always use TF-IDF terms for chunk extraction (human-readable keywords)
+    query_terms = _get_top_query_terms(query_vec)
+
     def _json_float(value):
         """Ensure JSON-serializable native float for coordinates (avoids numpy / Decimal quirks)."""
         if value is None:
@@ -164,6 +234,8 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
             "acceptanceRate": _json_float(school.acceptance_rate),
             "tuition": school.tuition,
             "enrollment": school.enrollment,
+            "matchingChunks": _extract_matching_chunks(school, query_terms),
+            "queryTerms": query_terms,
         }
 
     return [_school_payload(score, school) for score, school in ranked[:top_k]]
