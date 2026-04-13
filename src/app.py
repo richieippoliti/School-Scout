@@ -1,5 +1,6 @@
 import json
 import os
+import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask
 from sqlalchemy import inspect, text
@@ -12,6 +13,7 @@ from routes import register_routes, _build_index
 current_directory = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_directory)
 SEED_JSON_PATH = os.path.join(project_root, 'data', 'national_university_data.json')
+STATS_CSV_PATH = os.path.join(project_root, 'data', 'CLEANED_SchoolScouts.csv')
 
 # serve React build files
 app = Flask(__name__,
@@ -165,12 +167,107 @@ def migrate_school_columns():
         statements.append('ALTER TABLE schools ADD COLUMN enrollment INTEGER')
     if 'reviews_json' not in cols:
         statements.append('ALTER TABLE schools ADD COLUMN reviews_json TEXT')
+        
+    if 'sat_avg'    not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN sat_avg FLOAT')
+    if 'act_avg'    not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_avg FLOAT')
+    if 'hs_gpa_avg' not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN hs_gpa_avg FLOAT')
+    if 'sat_ela_50' not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN sat_ela_50 FLOAT')
+    if 'sat_ela_75' not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN sat_ela_75 FLOAT')
+    if 'sat_math_50'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN sat_math_50 FLOAT')
+    if 'sat_math_75'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN sat_math_75 FLOAT')
+    if 'act_comp_50'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_comp_50 FLOAT')
+    if 'act_comp_75'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_comp_75 FLOAT')
+    if 'act_eng_50' not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_eng_50 FLOAT')
+    if 'act_eng_75' not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_eng_75 FLOAT')
+    if 'act_math_50'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_math_50 FLOAT')
+    if 'act_math_75'not in cols: 
+        statements.append('ALTER TABLE schools ADD COLUMN act_math_75 FLOAT')
     if not statements:
         return
     with db.engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
+            
+_CSV_TO_MODEL: dict[str, str] = {
+    'satAvg':          'sat_avg',
+    'actAvg':          'act_avg',
+    'hsGpaAvg':        'hs_gpa_avg',
+    'acceptanceRate':  'acceptance_rate',  # also in JSON; CSV wins if both present
+    'satEla50':        'sat_ela_50',
+    'satEla75':        'sat_ela_75',
+    'satMath50':       'sat_math_50',
+    'satMath75':       'sat_math_75',
+    'actComp50':       'act_comp_50',
+    'actComp75':       'act_comp_75',
+    'actEng50':        'act_eng_50',
+    'actEng75':        'act_eng_75',
+    'actMath50':       'act_math_50',
+    'actMath75':       'act_math_75',
+}
 
+def sync_numeric_stats_from_csv() -> int:
+    """
+    Load CLEANED_SchoolScouts.csv and write SAT/ACT/GPA stats into the
+    schools table, matching rows by institution name.
+ 
+    - Skips rows where every stat column is NaN (no data to write).
+    - Skips schools not present in the database (no new rows created).
+    - Only commits when at least one value actually changed.
+    - Safe to call on every startup — idempotent.
+    """
+    if not os.path.isfile(STATS_CSV_PATH):
+        print(f"Stats CSV not found at {STATS_CSV_PATH}, skipping numeric sync")
+        return 0
+    if School.query.count() == 0:
+        return 0
+ 
+    df = pd.read_csv(STATS_CSV_PATH)
+ 
+    stat_cols = list(_CSV_TO_MODEL.keys())
+    # Drop rows where every stat column is NaN — nothing useful to write
+    df = df.dropna(subset=stat_cols, how='all')
+ 
+    updated_count = 0
+    for _, csv_row in df.iterrows():
+        name = str(csv_row.get('institution', '')).strip()
+        if not name:
+            continue
+ 
+        row = School.query.filter_by(name=name).first()
+        if not row:
+            continue  # school not in DB — don't create new records here
+ 
+        changed = False
+        for csv_col, model_attr in _CSV_TO_MODEL.items():
+            new_val = _optional_float(csv_row.get(csv_col))
+            if new_val is None:
+                continue  # NaN in CSV — leave whatever is already stored
+            if _float_differs(getattr(row, model_attr, None), new_val):
+                setattr(row, model_attr, new_val)
+                changed = True
+ 
+        if changed:
+            updated_count += 1
+ 
+    if updated_count:
+        db.session.commit()
+        print(f"Synced CSV numeric stats for {updated_count} school(s)")
+    else:
+        print("CSV numeric stats: no changes detected")
+ 
+    return updated_count
 
 def init_db():
     with app.app_context():

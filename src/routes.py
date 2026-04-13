@@ -3,8 +3,10 @@ Routes: React app serving and school search API.
 """
 import os
 import json
+import numpy as np
 from flask import send_from_directory, request, jsonify
 from models import db, School
+from dataclasses import dataclass
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
@@ -72,6 +74,86 @@ def _apply_negation_marking_spacy(text: str) -> str:
  
     return " ".join(tokens)
 
+# The Gaussian formula:
+#   score = exp(-0.5 * ((school_value - target) / sigma) ** 2)
+
+_FIELD_DEFAULTS: dict[str, tuple[str, float]] = {
+    "satAvg": ("sat_avg", 100.0),
+    "actAvg": ("act_avg", 3.0),
+    "hsGpaAvg":("hs_gpa_avg",0.3),
+    "acceptanceRate":("acceptance_rate", 10.0),
+    "satEla50": ("sat_ela_50", 100.0),
+    "satEla75": ("sat_ela_75", 100.0),
+    "satMath50":("sat_math_50", 100.0),
+    "satMath75":("sat_math_75", 100.0),
+    "actComp50":("act_comp_50",3.0),
+    "actComp75":("act_comp_75",3.0),
+}
+
+@dataclass
+class NumericFilter:
+    """One numeric preference expressed by the caller."""
+    model_attr: str   # attribute name on the School ORM object
+    target: float     # value the user is aiming for
+    sigma: float      # tolerance — higher = looser
+ 
+ 
+def _parse_numeric_filters(params: dict) -> list[NumericFilter]:
+    """
+    Build a list of NumericFilter objects from raw request query params.
+ 
+    Accepted formats:
+        ?satAvg=1200                    target=1200, default sigma
+        ?satAvg=1200&satAvg_sigma=50    target=1200, custom sigma=50
+        ?acceptanceRate=40              target=40%, default sigma=15
+    Multiple filters can be combined in one request.
+    """
+    filters = []
+    for api_key, (model_attr, default_sigma) in _FIELD_DEFAULTS.items():
+        raw = params.get(api_key)
+        if raw is None:
+            continue
+        try:
+            target = float(raw)
+        except (ValueError, TypeError):
+            continue
+        try:
+            sigma = float(params.get(f"{api_key}_sigma", default_sigma))
+        except (ValueError, TypeError):
+            sigma = default_sigma
+        filters.append(NumericFilter(model_attr=model_attr, target=target, sigma=sigma))
+    return filters
+ 
+ 
+def _gaussian_score(value, target: float, sigma: float) -> float:
+    """
+    Return a [0, 1] closeness score.
+    Missing values (None / NaN) return 0.5 — neutral, not penalised.
+    Schools with incomplete data shouldn't be buried just for a data gap.
+    """
+    if value is None:
+        return 0.5
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return 0.5
+    if np.isnan(v):
+        return 0.5
+    return float(np.exp(-0.5 * ((v - target) / sigma) ** 2))
+ 
+ 
+def _numeric_match_score(school: School, filters: list[NumericFilter]) -> float:
+    """
+    Mean Gaussian score across all active filters for one school.
+    Returns 1.0 (no effect on ranking) when no filters are supplied.
+    """
+    if not filters:
+        return 1.0
+    return float(np.mean([
+        _gaussian_score(getattr(school, f.model_attr, None), f.target, f.sigma)
+        for f in filters
+    ]))
+
 def _build_index():
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
 
@@ -116,33 +198,55 @@ def _build_index():
         _svd = TruncatedSVD(n_components=max_components, random_state=42)
         _doc_lsa = _svd.fit_transform(_tfidf_matrix)
     
-def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
+def school_search(query, top_k=20, threshold=0.05, metric="tfidf",
+                  numeric_filters: list[NumericFilter] | None = None,
+                  numeric_weight: float = 0.25):
+    
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
     if not query or not query.strip():
         return []
+    
     if _vectorizer is None:
         _build_index()
     if _vectorizer is None:
         return []
+    
+    numeric_filters = numeric_filters or []
 
     m = (metric or "tfidf").strip().lower()
     if m not in ("tfidf", "svd"):
         m = "tfidf"
+        
+    processed_query = _apply_negation_marking(query.strip())
+    query_vec = _vectorizer.transform([processed_query])
 
-    query_vec = _vectorizer.transform([query.strip()])
     if m == "svd" and _svd is not None and _doc_lsa is not None:
         q_lsa = _svd.transform(query_vec)
         scores = cosine_similarity(q_lsa, _doc_lsa).flatten()
     else:
         scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
+        
+    nw = numeric_weight if numeric_filters else 0.0
+    rw = 1.0 - nw
+    
+
+    # Blend retrieval and numeric signals
+    final_scores = np.array([
+        rw * float(scores[i])
+        + nw * _numeric_match_score(_indexed_schools[i], numeric_filters)
+        for i in range(len(_indexed_schools))
+    ])
 
     ranked = sorted(
-        ((score, school) for score, school in zip(scores, _indexed_schools)
-         if score >= threshold), # Results below threshold discarded
+        (
+            (float(final_scores[i]), _indexed_schools[i])
+            for i in range(len(_indexed_schools))
+        ),
         key=lambda x: x[0],
         reverse=True,
     )
-    print([(round(float(s), 4), sc.name) for s, sc in ranked[:5]])
+    print(ranked[:5])
+    print([(round(fs, 4), sc.name) for fs, sc in ranked[:5]])
 
     def _json_float(value):
         """Ensure JSON-serializable native float for coordinates (avoids numpy / Decimal quirks)."""
@@ -182,7 +286,20 @@ def register_routes(app):
     def schools_search():
         text = request.args.get("query", "")
         metric = request.args.get("metric", "tfidf")
-        return jsonify(school_search(text, metric=metric))
+        try:
+            nw = float(request.args.get("numeric_weight", 0.25))
+            nw = max(0.0, min(1.0, nw))
+        except (ValueError, TypeError):
+            nw = 0.25
+ 
+        numeric_filters = _parse_numeric_filters(request.args)
+        
+        return jsonify(school_search(
+            text,
+            metric=metric,
+            numeric_filters=numeric_filters,
+            numeric_weight=nw,
+        ))
 
     if USE_LLM:
         from llm_routes import register_chat_route
