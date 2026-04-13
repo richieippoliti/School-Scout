@@ -254,5 +254,4 @@ def register_routes(app):
 
     if USE_LLM:
         from llm_routes import register_chat_route
-        register_chat_route(app, school_search)git add -A && git commit -m "Add matching chunks with keyword highlighting and analyzed quality of search pre LLM" && git push origin main
-        
+        register_chat_route(app, school_search)
