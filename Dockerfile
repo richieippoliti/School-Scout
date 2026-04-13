@@ -33,4 +33,4 @@ COPY src/ $CONTAINER_HOME/src/
 COPY data/national_university_data.json $CONTAINER_HOME/data/national_university_data.json
 COPY --from=frontend-build /app/frontend/dist $CONTAINER_HOME/frontend/dist
 
-CMD ["python", "-m", "gunicorn", "--chdir", "src", "app:app", "--bind", "0.0.0.0:5000", "--log-level", "debug"]
+CMD ["python", "-m", "gunicorn", "--chdir", "src", "app:app", "--bind", "0.0.0.0:5000", "--timeout", "120", "--log-level", "debug"]
