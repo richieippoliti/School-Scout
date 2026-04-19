@@ -3,6 +3,8 @@ import SchoolList from './SchoolList'
 
 interface ResultsPanelProps {
   schools: School[];
+  currentPage: number;
+  totalPages: number;
   loading: boolean;
   error: string | null;
   query: string;
@@ -10,10 +12,14 @@ interface ResultsPanelProps {
   hoveredSchoolId: string | null;
   onSelectSchool: (schoolId: string) => void;
   onHoverSchool: (schoolId: string | null) => void;
+  onPageChange: (page: number) => void;
+  onOpenSchoolInfo: (school: School) => void;
 }
 
 function ResultsPanel({
   schools,
+  currentPage,
+  totalPages,
   loading,
   error,
   query,
@@ -21,6 +27,8 @@ function ResultsPanel({
   hoveredSchoolId,
   onSelectSchool,
   onHoverSchool,
+  onPageChange,
+  onOpenSchoolInfo,
 }: ResultsPanelProps): JSX.Element {
   if (loading) {
     return (
@@ -70,7 +78,31 @@ function ResultsPanel({
         hoveredSchoolId={hoveredSchoolId}
         onSelectSchool={onSelectSchool}
         onHoverSchool={onHoverSchool}
+        onOpenSchoolInfo={onOpenSchoolInfo}
       />
+      {totalPages > 1 && (
+        <div className="results-pagination" aria-label="Results pagination">
+          <button
+            type="button"
+            className="pagination-btn"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+          >
+            Previous
+          </button>
+          <span className="pagination-status">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="pagination-btn"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }

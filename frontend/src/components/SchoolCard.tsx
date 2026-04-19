@@ -7,6 +7,8 @@ interface SchoolCardProps {
   isHovered: boolean;
   onSelect: (schoolId: string) => void;
   onHover: (schoolId: string | null) => void;
+  onOpenInfo: (school: School) => void;
+  cardRef?: (element: HTMLDivElement | null) => void;
 }
 
 function highlightTerms(text: string, terms: string[]): React.ReactNode[] {
@@ -21,23 +23,29 @@ function highlightTerms(text: string, terms: string[]): React.ReactNode[] {
   )
 }
 
-function SchoolCard({ school, isSelected, isHovered, onSelect, onHover }: SchoolCardProps): JSX.Element {
+function SchoolCard({ school, isSelected, isHovered, onSelect, onHover, onOpenInfo, cardRef }: SchoolCardProps): JSX.Element {
   const location = formatSchoolLocation(school)
   const chunks =school.matchingChunks ?? []
   const terms = school.queryTerms ?? []
 
   return (
-    <button
-      type="button"
+    <article
+      ref={cardRef}
       className={`school-item ${isSelected ? 'selected' : ''} ${isHovered ? 'hovered' : ''}`}
-      onClick={() => onSelect(school.id)}
       onMouseEnter={() => onHover(school.id)}
       onMouseLeave={() => onHover(null)}
-      onFocus={() => onHover(school.id)}
-      onBlur={() => onHover(null)}
-      aria-pressed={isSelected}
+      aria-label={`School card for ${school.title}`}
     >
-      <h3 className="school-title">{school.title}</h3>
+      <button
+        type="button"
+        className="school-card-select-btn"
+        onClick={() => onSelect(school.id)}
+        onFocus={() => onHover(school.id)}
+        onBlur={() => onHover(null)}
+        aria-pressed={isSelected}
+      >
+        <h3 className="school-title">{school.title}</h3>
+      </button>
       {location && <p className="school-location">{location}</p>}
       <p className="school-desc">{school.descr}</p>
       {terms.length > 0 && (
@@ -47,13 +55,20 @@ function SchoolCard({ school, isSelected, isHovered, onSelect, onHover }: School
       )}
       {chunks.length > 0 && (
         <div className="school-chunks">
-          {chunks.map((chunk, i) => (
+          {chunks.map((chunk: string, i: number) => (
             <p key={i} className="school-chunk">"{highlightTerms(chunk, terms)}"</p>
           ))}
         </div>
       )}
       <p className="school-score">Match Score: {(school.score * 100).toFixed(1)}%</p>
-    </button>
+      <button
+        type="button"
+        className="school-more-info-btn"
+        onClick={() => onOpenInfo(school)}
+      >
+        More Information
+      </button>
+    </article>
   )
 }
 

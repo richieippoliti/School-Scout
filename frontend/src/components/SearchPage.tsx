@@ -3,12 +3,21 @@ import { School, SearchMetric } from '../types'
 import MapPane from './MapPane'
 import ResultsPanel from './ResultsPanel'
 import SearchBar from './SearchBar'
+import SearchFiltersPanel from './SearchFiltersPanel'
 
 interface SearchPageProps {
   useLlm: boolean;
   query: string;
   searchMetric: SearchMetric;
+  includeNationalUniversities: boolean;
+  includeLiberalArtsColleges: boolean;
+  satFilter: string;
+  actFilter: string;
+  gpaFilter: string;
+  gpaOutOfFilter: string;
   schools: School[];
+  currentPage: number;
+  totalPages: number;
   loading: boolean;
   error: string | null;
   selectedSchoolId: string | null;
@@ -16,8 +25,16 @@ interface SearchPageProps {
   onQueryChange: (value: string) => void;
   onSubmitSearch: () => void;
   onSearchMetricChange: (metric: SearchMetric) => void;
+  onIncludeNationalChange: (value: boolean) => void;
+  onIncludeLiberalArtsChange: (value: boolean) => void;
+  onSatFilterChange: (value: string) => void;
+  onActFilterChange: (value: string) => void;
+  onGpaFilterChange: (value: string) => void;
+  onGpaOutOfFilterChange: (value: string) => void;
   onSelectSchool: (schoolId: string) => void;
   onHoverSchool: (schoolId: string | null) => void;
+  onPageChange: (page: number) => void;
+  onOpenSchoolInfo: (school: School) => void;
   onChatSearchTerm: (term: string) => void;
 }
 
@@ -25,7 +42,15 @@ function SearchPage({
   useLlm,
   query,
   searchMetric,
+  includeNationalUniversities,
+  includeLiberalArtsColleges,
+  satFilter,
+  actFilter,
+  gpaFilter,
+  gpaOutOfFilter,
   schools,
+  currentPage,
+  totalPages,
   loading,
   error,
   selectedSchoolId,
@@ -33,8 +58,16 @@ function SearchPage({
   onQueryChange,
   onSubmitSearch,
   onSearchMetricChange,
+  onIncludeNationalChange,
+  onIncludeLiberalArtsChange,
+  onSatFilterChange,
+  onActFilterChange,
+  onGpaFilterChange,
+  onGpaOutOfFilterChange,
   onSelectSchool,
   onHoverSchool,
+  onPageChange,
+  onOpenSchoolInfo,
   onChatSearchTerm,
 }: SearchPageProps): JSX.Element {
   return (
@@ -63,6 +96,8 @@ function SearchPage({
         <div className="results-pane-scroll">
           <ResultsPanel
             schools={schools}
+            currentPage={currentPage}
+            totalPages={totalPages}
             loading={loading}
             error={error}
             query={query}
@@ -70,26 +105,27 @@ function SearchPage({
             hoveredSchoolId={hoveredSchoolId}
             onSelectSchool={onSelectSchool}
             onHoverSchool={onHoverSchool}
+            onPageChange={onPageChange}
+            onOpenSchoolInfo={onOpenSchoolInfo}
           />
         </div>
 
-        <div className="panel-footer metric-footer">
-          <label className="metric-label" htmlFor="search-metric">
-            Ranking
-          </label>
-          <select
-            id="search-metric"
-            className="metric-select"
-            value={searchMetric}
-            onChange={(e) => {
-              onSearchMetricChange(e.target.value as SearchMetric)
-            }}
-            aria-label="Search ranking metric"
-          >
-            <option value="tfidf">TF–IDF (cosine)</option>
-            <option value="svd">SVD / LSA (TF–IDF + SVD)</option>
-          </select>
-        </div>
+        <SearchFiltersPanel
+          searchMetric={searchMetric}
+          onSearchMetricChange={onSearchMetricChange}
+          includeNationalUniversities={includeNationalUniversities}
+          includeLiberalArtsColleges={includeLiberalArtsColleges}
+          onIncludeNationalChange={onIncludeNationalChange}
+          onIncludeLiberalArtsChange={onIncludeLiberalArtsChange}
+          sat={satFilter}
+          act={actFilter}
+          gpa={gpaFilter}
+          gpaOutOf={gpaOutOfFilter}
+          onSatChange={onSatFilterChange}
+          onActChange={onActFilterChange}
+          onGpaChange={onGpaFilterChange}
+          onGpaOutOfChange={onGpaOutOfFilterChange}
+        />
 
         {useLlm && <Chat onSearchTerm={onChatSearchTerm} />}
       </aside>

@@ -1,4 +1,4 @@
-/** Retrieval / ranking metric: raw TF-IDF cosine, or LSA (TF-IDF + truncated SVD). */
+/** Retrieval / ranking metric: raw TF-IDF cosine, or SVD with Sentiment Analysis (TF-IDF + truncated SVD). */
 export type SearchMetric = 'tfidf' | 'svd';
 
 export interface School {
@@ -18,8 +18,30 @@ export interface School {
   majors?: string[];
   description?: string;
   tags?: string[];
+  /** national_university | liberal_arts when provided by API */
+  institutionType?: string;
   matchingChunks?: string[];
   queryTerms?: string[];
+  displayRank?: number;
+  nicheUrl?: string;
+  reviews?: SchoolReview[];
+}
+
+export interface SchoolReview {
+  text?: string;
+  rating?: number;
+  date?: string;
+  reviewer_type?: string;
+}
+
+/** Optional query parameters for /api/schools */
+export interface SchoolSearchApiOptions {
+  includeNational?: boolean;
+  includeLiberalArts?: boolean;
+  sat?: number;
+  act?: number;
+  gpa?: number;
+  gpaOutOf?: number;
 }
 
 export interface SearchFilters {
@@ -63,6 +85,9 @@ export interface RawSchool {
   majors?: string[];
   description?: string;
   tags?: string[];
+  institutionType?: string;
   matchingChunks?: string[];
   queryTerms?: string[];
+  nicheUrl?: string;
+  reviews?: SchoolReview[];
 }

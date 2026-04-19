@@ -180,7 +180,87 @@ def _extract_matching_chunks(school, query_terms: list, max_chunks: int = 2, max
     return [s for _, s in scored[:max_chunks]]
 
 
-def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
+def _parse_bool_param(value, default: bool) -> bool:
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return default
+    s = str(value).strip().lower()
+    if s in ("1", "true", "yes", "on"):
+        return True
+    if s in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _optional_int_param(value):
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_float_param(value):
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    try:
+        f = float(str(value).strip())
+        return f if f == f else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _school_passes_dataset_filter(
+    school: School, include_national: bool, include_liberal: bool
+) -> bool:
+    t = (getattr(school, "institution_type", None) or "national_university").strip().lower()
+    if t == "liberal_arts":
+        return include_liberal
+    if t == "national_university":
+        return include_national
+    return include_national or include_liberal
+
+
+def _school_passes_stats_filter(
+    school: School,
+    user_sat: int | None,
+    user_act: float | None,
+    user_gpa_on_4: float | None,
+) -> bool:
+    """
+    When the DB has admissions stats, drop obvious mismatches (too weak on a dimension).
+    Schools with no stats on a dimension always pass for that dimension.
+    """
+    if user_sat is not None:
+        lo = school.sat_25
+        if lo is not None and user_sat < lo - 100:
+            return False
+
+    if user_act is not None:
+        lo = school.act_25
+        if lo is not None and user_act < lo - 3:
+            return False
+
+    if user_gpa_on_4 is not None and school.gpa_mid is not None:
+        if user_gpa_on_4 + 1e-6 < school.gpa_mid - 0.35:
+            return False
+
+    return True
+
+
+def school_search(
+    query,
+    top_k=20,
+    threshold=0.05,
+    metric="tfidf",
+    *,
+    include_national: bool = True,
+    include_liberal_arts: bool = True,
+    user_sat: int | None = None,
+    user_act: float | None = None,
+    user_gpa: float | None = None,
+    user_gpa_out_of: float | None = None,
+):
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
     if not query or not query.strip():
         return []
@@ -189,9 +269,20 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
     if _vectorizer is None:
         return []
 
+    if not include_national and not include_liberal_arts:
+        return []
+
     m = (metric or "tfidf").strip().lower()
     if m not in ("tfidf", "svd"):
         m = "tfidf"
+
+    user_gpa_on_4 = None
+    if (
+        user_gpa is not None
+        and user_gpa_out_of is not None
+        and user_gpa_out_of > 0
+    ):
+        user_gpa_on_4 = (user_gpa / user_gpa_out_of) * 4.0
 
     query_vec = _vectorizer.transform([query.strip()])
     if m == "svd" and _svd is not None and _doc_lsa is not None:
@@ -217,6 +308,14 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
         return float(value)
 
     def _school_payload(score: float, school: School) -> dict:
+        reviews = []
+        if school.reviews_json:
+            try:
+                raw_reviews = json.loads(school.reviews_json)
+                if isinstance(raw_reviews, list):
+                    reviews = raw_reviews
+            except (json.JSONDecodeError, TypeError):
+                reviews = []
         return {
             "id": school.id,
             "title": school.name,
@@ -228,11 +327,23 @@ def school_search(query, top_k=20, threshold=0.05, metric="tfidf"):
             "acceptanceRate": _json_float(school.acceptance_rate),
             "tuition": school.tuition,
             "enrollment": school.enrollment,
+            "institutionType": getattr(school, "institution_type", None) or "national_university",
+            "nicheUrl": school.niche_url,
+            "reviews": reviews,
             "matchingChunks": _extract_matching_chunks(school, query_terms),
             "queryTerms": query_terms,
         }
 
-    return [_school_payload(score, school) for score, school in ranked[:top_k]]
+    out = []
+    for score, school in ranked:
+        if not _school_passes_dataset_filter(school, include_national, include_liberal_arts):
+            continue
+        if not _school_passes_stats_filter(school, user_sat, user_act, user_gpa_on_4):
+            continue
+        out.append(_school_payload(score, school))
+        if len(out) >= top_k:
+            break
+    return out
     
 def register_routes(app):
     @app.route('/', defaults={'path': ''})
@@ -250,7 +361,28 @@ def register_routes(app):
     def schools_search():
         text = request.args.get("query", "")
         metric = request.args.get("metric", "tfidf")
-        return jsonify(school_search(text, metric=metric))
+        include_national = _parse_bool_param(
+            request.args.get("include_national"), True
+        )
+        include_liberal_arts = _parse_bool_param(
+            request.args.get("include_liberal_arts"), True
+        )
+        user_sat = _optional_int_param(request.args.get("sat"))
+        user_act = _optional_float_param(request.args.get("act"))
+        user_gpa = _optional_float_param(request.args.get("gpa"))
+        user_gpa_out_of = _optional_float_param(request.args.get("gpa_out_of"))
+        return jsonify(
+            school_search(
+                text,
+                metric=metric,
+                include_national=include_national,
+                include_liberal_arts=include_liberal_arts,
+                user_sat=user_sat,
+                user_act=user_act,
+                user_gpa=user_gpa,
+                user_gpa_out_of=user_gpa_out_of,
+            )
+        )
 
     if USE_LLM:
         from llm_routes import register_chat_route

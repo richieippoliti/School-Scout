@@ -52,13 +52,158 @@
   overflow-y: auto;
 }
 
-.panel-footer.metric-footer {
+.panel-footer.search-filters-footer {
   flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 1px solid #ececec;
+}
+
+.filters-disclosure {
+  border-radius: 8px;
+  border: 1px solid #e8eaed;
+  background: #fafbfc;
+}
+
+.filters-disclosure-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #3c4043;
+  padding: 10px 12px;
+  font-family: 'Open Sans', sans-serif;
+  user-select: none;
+}
+
+.filters-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.filters-disclosure-summary::after {
+  content: '';
+  float: right;
+  width: 0;
+  height: 0;
+  margin-top: 6px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #5f6368;
+  transition: transform 0.15s ease;
+}
+
+.filters-disclosure[open] .filters-disclosure-summary::after {
+  transform: rotate(180deg);
+}
+
+.filters-disclosure-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.filter-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 12px;
-  border-top: 1px solid #ececec;
+}
+
+.filters-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #70757a;
+  line-height: 1.35;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.institution-fieldset,
+.stats-fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.institution-fieldset legend,
+.stats-fieldset legend {
+  padding: 0;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #222;
+  font-family: 'Open Sans', sans-serif;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-input-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.filter-text-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #dfe1e5;
+  padding: 7px 10px;
+  font-size: 0.9rem;
+  font-family: 'Open Sans', sans-serif;
+  background: #fff;
+  color: #222;
+}
+
+.filter-text-input:focus {
+  outline: 2px solid rgba(201, 168, 0, 0.35);
+  outline-offset: 1px;
+  border-color: #c2c8cf;
+}
+
+.gpa-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.gpa-inline .stat-input-label {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.gpa-out-of-label {
+  flex: 1 1 100px;
+}
+
+.gpa-slash {
+  font-size: 1.1rem;
+  color: #5f6368;
+  padding-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .metric-label {
@@ -186,10 +331,6 @@
   text-align: left;
 }
 
-button.school-item {
-  cursor: pointer;
-}
-
 .school-item:hover {
   border-color: #d7dadf;
   background: #f5f7f9;
@@ -207,6 +348,21 @@ button.school-item {
 .school-item:focus-visible {
   outline: 2px solid #9eb4ff;
   outline-offset: 2px;
+}
+
+.school-card-select-btn {
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.school-card-select-btn:focus-visible {
+  outline: 2px solid #9eb4ff;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .school-title {
@@ -269,6 +425,165 @@ button.school-item {
   font-size: 0.82rem;
   color: #5f6368;
   font-weight: 600;
+}
+
+.school-more-info-btn {
+  margin-top: 8px;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.school-more-info-btn:hover {
+  background: #f6f6f6;
+}
+
+.results-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pagination-btn {
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pagination-status {
+  font-size: 0.8rem;
+  color: #5f6368;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.numbered-marker {
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 2px solid #8a6f00;
+  background: #f4b400;
+  color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.numbered-marker > span {
+  width: 100%;
+  display: block;
+  text-align: center;
+  transform: translateX(0.5px);
+}
+
+.school-info-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 24px;
+}
+
+.school-info-modal {
+  width: min(900px, 100%);
+  max-height: min(86vh, 900px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.school-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ececec;
+  padding: 14px 16px;
+}
+
+.school-info-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #222;
+}
+
+.school-info-close-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #555;
+}
+
+.school-info-content {
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.school-info-content h3 {
+  margin: 0 0 8px;
+  color: #333;
+  font-size: 1rem;
+}
+
+.school-info-content p {
+  margin: 0 0 12px;
+  color: #3c4043;
+  line-height: 1.45;
+}
+
+.school-info-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.school-info-review-card {
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.school-info-review-meta {
+  color: #666;
+  font-size: 0.82rem;
+  margin-bottom: 0;
+}
+
+.numbered-marker.selected {
+  background: #d93025;
+  border-color: #8f1616;
+  color: #fff;
+}
+
+.numbered-marker.hovered:not(.selected) {
+  background: #f29900;
 }
 
 .llm-mode #answer-box {
