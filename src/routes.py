@@ -4,6 +4,7 @@ Routes: React app serving and school search API.
 import os
 import re
 import json
+import csv
 from flask import send_from_directory, request, jsonify
 from models import db, School
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -30,6 +31,159 @@ def _load_spacy():
         return None
  
 _nlp = _load_spacy()
+
+_national_rank_by_name: dict[str, int] | None = None
+_liberal_arts_rank_by_name: dict[str, int] | None = None
+
+
+def _norm_school_name(name: str) -> str:
+    """
+    Best-effort normalization so rankings files match DB school names.
+    """
+    s = (name or "").strip().lower()
+    s = s.replace("&", "and")
+    s = re.sub(r"[\.\-–—']", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _ensure_rank_indexes_loaded():
+    """
+    Lazy-load ranking mappings from:
+      - data/data_filtered.csv (national universities, via sortRank)
+      - data/liberal_arts_ranking.json (ordered ranking list)
+    """
+    global _national_rank_by_name, _liberal_arts_rank_by_name
+    if _national_rank_by_name is not None and _liberal_arts_rank_by_name is not None:
+        return
+
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # National universities: rank from CSV sortRank
+    nat: dict[str, int] = {}
+    csv_path = os.path.join(project_root, "data", "data_filtered.csv")
+    try:
+        with open(csv_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if (row.get("schoolType") or "").strip().lower() != "national-universities":
+                    continue
+                nm = row.get("displayName") or ""
+                try:
+                    r = int(float(str(row.get("sortRank", "")).strip()))
+                except (TypeError, ValueError):
+                    continue
+                if r <= 0:
+                    continue
+                nat[_norm_school_name(nm)] = r
+    except FileNotFoundError:
+        nat = {}
+
+    # Liberal arts: ordered JSON list; index+1 is rank
+    la: dict[str, int] = {}
+    la_path = os.path.join(project_root, "data", "liberal_arts_ranking.json")
+    try:
+        with open(la_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        raw = (raw or "").strip()
+        if not raw:
+            data = []
+        else:
+            data = json.loads(raw)
+        if isinstance(data, list):
+            for i, item in enumerate(data):
+                if not isinstance(item, dict):
+                    continue
+                nm = item.get("name")
+                if not nm:
+                    continue
+                la[_norm_school_name(str(nm))] = i + 1
+    except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError):
+        la = {}
+
+    _national_rank_by_name = nat
+    _liberal_arts_rank_by_name = la
+
+
+def _rank_band_from_sat(sat: int) -> tuple[int | None, int | None]:
+    """
+    Convert SAT into an allowed ranking band:
+      - min_rank: don't suggest schools more selective than this (e.g. exclude top 10)
+      - max_rank: don't suggest schools less selective than this (e.g. only top 100)
+    """
+    if sat >= 1500:
+        return (1, 100)
+    if sat >= 1450:
+        return (1, 150)
+    if sat >= 1400:
+        return (1, 200)
+    if sat >= 1300:
+        return (10, 350)
+    if sat >= 1200:
+        return (11, 500)
+    if sat >= 1100:
+        return (25, 700)
+    # very low / unknown prep: avoid the most selective schools
+    return (60, None)
+
+
+def _rank_band_from_act(act: float) -> tuple[int | None, int | None]:
+    if act >= 34:
+        return (1, 100)
+    if act >= 32:
+        return (1, 150)
+    if act >= 30:
+        return (1, 250)
+    if act >= 27:
+        return (10, 450)
+    if act >= 24:
+        return (25, 700)
+    return (60, None)
+
+
+def _rank_band_from_gpa_on_4(gpa: float) -> tuple[int | None, int | None]:
+    if gpa >= 3.9:
+        return (1, 100)
+    if gpa >= 3.7:
+        return (1, 150)
+    if gpa >= 3.5:
+        return (1, 250)
+    if gpa >= 3.2:
+        return (15, 500)
+    if gpa >= 3.0:
+        return (35, 800)
+    return (70, None)
+
+
+def _combine_rank_bands(*bands: tuple[int | None, int | None]) -> tuple[int | None, int | None]:
+    mins = [b[0] for b in bands if b[0] is not None]
+    maxs = [b[1] for b in bands if b[1] is not None]
+    min_rank = max(mins) if mins else None
+    max_rank = min(maxs) if maxs else None
+    return (min_rank, max_rank)
+
+
+def _school_rank(school: School) -> int | None:
+    _ensure_rank_indexes_loaded()
+    t = (getattr(school, "institution_type", None) or "national_university").strip().lower()
+    nm = _norm_school_name(school.name)
+    if t == "liberal_arts":
+        return (_liberal_arts_rank_by_name or {}).get(nm)
+    return (_national_rank_by_name or {}).get(nm)
+
+
+def _school_passes_rank_band(school: School, min_rank: int | None, max_rank: int | None) -> bool:
+    if min_rank is None and max_rank is None:
+        return True
+    r = _school_rank(school)
+    # If we can't rank the school, don't block it (keeps coverage high).
+    if r is None:
+        return True
+    if min_rank is not None and r < min_rank:
+        return False
+    if max_rank is not None and r > max_rank:
+        return False
+    return True
 
 
 def _apply_negation_marking(text: str) -> str:
@@ -228,24 +382,24 @@ def _school_passes_stats_filter(
     user_gpa_on_4: float | None,
 ) -> bool:
     """
-    When the DB has admissions stats, drop obvious mismatches (too weak on a dimension).
-    Schools with no stats on a dimension always pass for that dimension.
+    We don't reliably have SAT/ACT/GPA for many schools, so instead:
+      - convert user SAT/ACT/GPA into a *ranking band* (min/max rank)
+      - filter schools by rank (US News-ish) rather than by published test/GPA stats
+
+    Rank sources:
+      - national universities: data/data_filtered.csv (sortRank)
+      - liberal arts colleges: data/liberal_arts_ranking.json order
     """
+    bands: list[tuple[int | None, int | None]] = []
     if user_sat is not None:
-        lo = school.sat_25
-        if lo is not None and user_sat < lo - 100:
-            return False
-
+        bands.append(_rank_band_from_sat(int(user_sat)))
     if user_act is not None:
-        lo = school.act_25
-        if lo is not None and user_act < lo - 3:
-            return False
+        bands.append(_rank_band_from_act(float(user_act)))
+    if user_gpa_on_4 is not None:
+        bands.append(_rank_band_from_gpa_on_4(float(user_gpa_on_4)))
 
-    if user_gpa_on_4 is not None and school.gpa_mid is not None:
-        if user_gpa_on_4 + 1e-6 < school.gpa_mid - 0.35:
-            return False
-
-    return True
+    min_rank, max_rank = _combine_rank_bands(*bands) if bands else (None, None)
+    return _school_passes_rank_band(school, min_rank, max_rank)
 
 
 def school_search(
