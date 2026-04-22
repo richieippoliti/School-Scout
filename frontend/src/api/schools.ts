@@ -1,4 +1,4 @@
-import { ConfigResponse, RawSchool, School, SchoolSearchApiOptions, SearchMetric } from '../types'
+import { ConfigResponse, RagSearchResponse, RawSchool, School, SchoolSearchApiOptions, SearchMetric } from '../types'
 
 function finiteNumber(value: unknown): number | undefined {
   if (value == null || value === '') return undefined
@@ -28,6 +28,8 @@ function toSchool(raw: RawSchool, index: number): School {
     descr,
     score,
     name: optionalString(raw.name),
+    city: optionalString(raw.city),
+    state: optionalString(raw.state),
     latitude: finiteNumber(raw.latitude),
     longitude: finiteNumber(raw.longitude),
     matchScore: finiteNumber(raw.matchScore),
@@ -89,4 +91,45 @@ export async function fetchSchools(
 
   const data = (await response.json()) as RawSchool[]
   return data.map(toSchool)
+}
+
+export interface FetchSchoolsRagResult {
+  schools: School[];
+  originalQuery: string;
+  rewrittenQuery?: string | null;
+  llmAnswer?: string | null;
+}
+
+export async function fetchSchoolsRag(
+  query: string,
+  metric: SearchMetric = 'tfidf',
+  options: SchoolSearchApiOptions = {},
+): Promise<FetchSchoolsRagResult> {
+  const response = await fetch('/api/schools/rag', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query,
+      metric,
+      includeNational: options.includeNational !== false,
+      includeLiberalArts: options.includeLiberalArts !== false,
+      sat: options.sat,
+      act: options.act,
+      gpa: options.gpa,
+      gpaOutOf: options.gpaOutOf,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`RAG search failed (${response.status})`)
+  }
+
+  const data = (await response.json()) as RagSearchResponse
+  const rawResults = Array.isArray(data.results) ? data.results : []
+  return {
+    schools: rawResults.map(toSchool),
+    originalQuery: data.original_query ?? query,
+    rewrittenQuery: data.rewritten_query ?? null,
+    llmAnswer: data.llm_answer ?? null,
+  }
 }

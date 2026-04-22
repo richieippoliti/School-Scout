@@ -8,6 +8,8 @@ interface ResultsPanelProps {
   loading: boolean;
   error: string | null;
   query: string;
+  llmAnswer?: string | null;
+  rewrittenQuery?: string | null;
   selectedSchoolId: string | null;
   hoveredSchoolId: string | null;
   onSelectSchool: (schoolId: string) => void;
@@ -23,6 +25,8 @@ function ResultsPanel({
   loading,
   error,
   query,
+  llmAnswer,
+  rewrittenQuery,
   selectedSchoolId,
   hoveredSchoolId,
   onSelectSchool,
@@ -72,6 +76,21 @@ function ResultsPanel({
 
   return (
     <div id="answer-box">
+      {(llmAnswer || rewrittenQuery) && (
+        <section className="rag-answer" aria-label="AI answer grounded in retrieved results">
+          {rewrittenQuery && rewrittenQuery.trim() && (
+            <p className="rag-rewrite">
+              <strong>Rewritten query:</strong> {rewrittenQuery}
+            </p>
+          )}
+          {llmAnswer && llmAnswer.trim() && (
+            <div className="rag-text">
+              <p className="rag-title"><strong>Grounded AI answer</strong></p>
+              <p className="rag-body">{llmAnswer}</p>
+            </div>
+          )}
+        </section>
+      )}
       <SchoolList
         schools={schools}
         selectedSchoolId={selectedSchoolId}

@@ -1,16 +1,15 @@
-import Chat from '../Chat'
-import { School, SearchMetric } from '../types'
+import { School } from '../types'
 import MapPane from './MapPane'
 import ResultsPanel from './ResultsPanel'
 import SearchBar from './SearchBar'
 import SearchFiltersPanel from './SearchFiltersPanel'
 
 interface SearchPageProps {
-  useLlm: boolean;
   query: string;
-  searchMetric: SearchMetric;
   includeNationalUniversities: boolean;
   includeLiberalArtsColleges: boolean;
+  ragEnabled: boolean;
+  ragAvailable: boolean;
   satFilter: string;
   actFilter: string;
   gpaFilter: string;
@@ -20,13 +19,15 @@ interface SearchPageProps {
   totalPages: number;
   loading: boolean;
   error: string | null;
+  llmAnswer?: string | null;
+  rewrittenQuery?: string | null;
   selectedSchoolId: string | null;
   hoveredSchoolId: string | null;
   onQueryChange: (value: string) => void;
   onSubmitSearch: () => void;
-  onSearchMetricChange: (metric: SearchMetric) => void;
   onIncludeNationalChange: (value: boolean) => void;
   onIncludeLiberalArtsChange: (value: boolean) => void;
+  onRagEnabledChange: (value: boolean) => void;
   onSatFilterChange: (value: string) => void;
   onActFilterChange: (value: string) => void;
   onGpaFilterChange: (value: string) => void;
@@ -35,15 +36,14 @@ interface SearchPageProps {
   onHoverSchool: (schoolId: string | null) => void;
   onPageChange: (page: number) => void;
   onOpenSchoolInfo: (school: School) => void;
-  onChatSearchTerm: (term: string) => void;
 }
 
 function SearchPage({
-  useLlm,
   query,
-  searchMetric,
   includeNationalUniversities,
   includeLiberalArtsColleges,
+  ragEnabled,
+  ragAvailable,
   satFilter,
   actFilter,
   gpaFilter,
@@ -53,13 +53,15 @@ function SearchPage({
   totalPages,
   loading,
   error,
+  llmAnswer,
+  rewrittenQuery,
   selectedSchoolId,
   hoveredSchoolId,
   onQueryChange,
   onSubmitSearch,
-  onSearchMetricChange,
   onIncludeNationalChange,
   onIncludeLiberalArtsChange,
+  onRagEnabledChange,
   onSatFilterChange,
   onActFilterChange,
   onGpaFilterChange,
@@ -68,10 +70,9 @@ function SearchPage({
   onHoverSchool,
   onPageChange,
   onOpenSchoolInfo,
-  onChatSearchTerm,
 }: SearchPageProps): JSX.Element {
   return (
-    <div className={`search-layout ${useLlm ? 'llm-mode' : ''}`}>
+    <div className={`search-layout ${ragEnabled ? 'llm-mode' : ''}`}>
       <MapPane
         schools={schools}
         selectedSchoolId={selectedSchoolId}
@@ -101,6 +102,8 @@ function SearchPage({
             loading={loading}
             error={error}
             query={query}
+            llmAnswer={llmAnswer}
+            rewrittenQuery={rewrittenQuery}
             selectedSchoolId={selectedSchoolId}
             hoveredSchoolId={hoveredSchoolId}
             onSelectSchool={onSelectSchool}
@@ -111,12 +114,13 @@ function SearchPage({
         </div>
 
         <SearchFiltersPanel
-          searchMetric={searchMetric}
-          onSearchMetricChange={onSearchMetricChange}
           includeNationalUniversities={includeNationalUniversities}
           includeLiberalArtsColleges={includeLiberalArtsColleges}
           onIncludeNationalChange={onIncludeNationalChange}
           onIncludeLiberalArtsChange={onIncludeLiberalArtsChange}
+          ragEnabled={ragEnabled}
+          ragAvailable={ragAvailable}
+          onRagEnabledChange={onRagEnabledChange}
           sat={satFilter}
           act={actFilter}
           gpa={gpaFilter}
@@ -127,7 +131,6 @@ function SearchPage({
           onGpaOutOfChange={onGpaOutOfFilterChange}
         />
 
-        {useLlm && <Chat onSearchTerm={onChatSearchTerm} />}
       </aside>
     </div>
   )

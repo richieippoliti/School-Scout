@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './App.css'
-import { School, SchoolSearchApiOptions, SearchMetric } from './types'
-import { fetchConfig, fetchSchools } from './api/schools'
+import { School, SchoolSearchApiOptions } from './types'
+import { fetchConfig, fetchSchools, fetchSchoolsRag } from './api/schools'
 import SearchPage from './components/SearchPage'
 import SchoolInfoModal from './components/SchoolInfoModal'
 
@@ -31,9 +31,11 @@ function buildApiOptions(
 
 function App(): JSX.Element {
   const RESULTS_PER_PAGE = 5
-  const [useLlm, setUseLlm] = useState<boolean | null>(null)
+  const SEARCH_METRIC = 'svd' as const
+  const [configLoaded, setConfigLoaded] = useState(false)
+  const [ragAvailable, setRagAvailable] = useState(false)
+  const [ragEnabled, setRagEnabled] = useState(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [searchMetric, setSearchMetric] = useState<SearchMetric>('tfidf')
   const [includeNationalUniversities, setIncludeNationalUniversities] = useState(true)
   const [includeLiberalArtsColleges, setIncludeLiberalArtsColleges] = useState(true)
   const [satFilter, setSatFilter] = useState('')
@@ -41,6 +43,8 @@ function App(): JSX.Element {
   const [gpaFilter, setGpaFilter] = useState('')
   const [gpaOutOfFilter, setGpaOutOfFilter] = useState('')
   const [schools, setSchools] = useState<School[]>([])
+  const [llmAnswer, setLlmAnswer] = useState<string | null>(null)
+  const [rewrittenQuery, setRewrittenQuery] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
   const [hoveredSchoolId, setHoveredSchoolId] = useState<string | null>(null)
@@ -49,25 +53,32 @@ function App(): JSX.Element {
   const [infoSchool, setInfoSchool] = useState<School | null>(null)
   const searchTermRef = useRef(searchTerm)
   searchTermRef.current = searchTerm
-  const searchMetricRef = useRef(searchMetric)
-  searchMetricRef.current = searchMetric
 
   useEffect(() => {
     fetchConfig()
-      .then((data) => setUseLlm(data.use_llm))
+      .then((data) => {
+        const available = Boolean(data.llm_available)
+        setRagAvailable(available)
+        setRagEnabled(available)
+        setConfigLoaded(true)
+      })
       .catch(() => {
-        setUseLlm(false)
+        setRagAvailable(false)
+        setRagEnabled(false)
+        setConfigLoaded(true)
         setError('Unable to load app configuration.')
       })
   }, [])
 
   const executeSearch = useCallback(
-    async (value: string, metric: SearchMetric, apiOptions: SchoolSearchApiOptions): Promise<void> => {
+    async (value: string, apiOptions: SchoolSearchApiOptions): Promise<void> => {
       const trimmedValue = value.trim()
       setError(null)
 
       if (trimmedValue === '') {
         setSchools([])
+        setLlmAnswer(null)
+        setRewrittenQuery(null)
         setCurrentPage(1)
         setSelectedSchoolId(null)
         setHoveredSchoolId(null)
@@ -76,13 +87,26 @@ function App(): JSX.Element {
 
       setLoading(true)
       try {
-        const data = await fetchSchools(trimmedValue, metric, apiOptions)
-        setSchools(data)
+        let nextSchools: School[] = []
+        if (ragEnabled) {
+          const rag = await fetchSchoolsRag(trimmedValue, SEARCH_METRIC, apiOptions)
+          nextSchools = rag.schools
+          setLlmAnswer(rag.llmAnswer ?? null)
+          setRewrittenQuery(rag.rewrittenQuery ?? null)
+        } else {
+          nextSchools = await fetchSchools(trimmedValue, SEARCH_METRIC, apiOptions)
+          setLlmAnswer(null)
+          setRewrittenQuery(null)
+        }
+
+        setSchools(nextSchools)
         setCurrentPage(1)
-        setSelectedSchoolId(data[0]?.id ?? null)
+        setSelectedSchoolId(nextSchools[0]?.id ?? null)
         setHoveredSchoolId(null)
       } catch {
         setSchools([])
+        setLlmAnswer(null)
+        setRewrittenQuery(null)
         setSelectedSchoolId(null)
         setHoveredSchoolId(null)
         setError('Search request failed. Please try again.')
@@ -90,48 +114,12 @@ function App(): JSX.Element {
         setLoading(false)
       }
     },
-    [],
+    [ragEnabled],
   )
 
   const handleSubmitSearch = (): void => {
     void executeSearch(
       searchTerm,
-      searchMetric,
-      buildApiOptions(
-        includeNationalUniversities,
-        includeLiberalArtsColleges,
-        satFilter,
-        actFilter,
-        gpaFilter,
-        gpaOutOfFilter,
-      ),
-    )
-  }
-
-  const handleSearchMetricChange = (metric: SearchMetric): void => {
-    setSearchMetric(metric)
-    const trimmed = searchTerm.trim()
-    if (trimmed !== '') {
-      void executeSearch(
-        trimmed,
-        metric,
-        buildApiOptions(
-          includeNationalUniversities,
-          includeLiberalArtsColleges,
-          satFilter,
-          actFilter,
-          gpaFilter,
-          gpaOutOfFilter,
-        ),
-      )
-    }
-  }
-
-  const handleChatSearchTerm = (term: string): void => {
-    setSearchTerm(term)
-    void executeSearch(
-      term,
-      searchMetric,
       buildApiOptions(
         includeNationalUniversities,
         includeLiberalArtsColleges,
@@ -151,7 +139,6 @@ function App(): JSX.Element {
     const timerId = window.setTimeout(() => {
       void executeSearch(
         trimmed,
-        searchMetricRef.current,
         buildApiOptions(
           includeNationalUniversities,
           includeLiberalArtsColleges,
@@ -208,16 +195,16 @@ function App(): JSX.Element {
     }
   }
 
-  if (useLlm === null) return <></>
+  if (!configLoaded) return <></>
 
   return (
     <>
       <SearchPage
-        useLlm={useLlm}
         query={searchTerm}
-        searchMetric={searchMetric}
         includeNationalUniversities={includeNationalUniversities}
         includeLiberalArtsColleges={includeLiberalArtsColleges}
+        ragEnabled={ragEnabled}
+        ragAvailable={ragAvailable}
         satFilter={satFilter}
         actFilter={actFilter}
         gpaFilter={gpaFilter}
@@ -227,13 +214,22 @@ function App(): JSX.Element {
         totalPages={totalPages}
         loading={loading}
         error={error}
+        llmAnswer={llmAnswer}
+        rewrittenQuery={rewrittenQuery}
         selectedSchoolId={selectedSchoolId}
         hoveredSchoolId={hoveredSchoolId}
         onQueryChange={setSearchTerm}
         onSubmitSearch={handleSubmitSearch}
-        onSearchMetricChange={handleSearchMetricChange}
         onIncludeNationalChange={setIncludeNationalUniversities}
         onIncludeLiberalArtsChange={setIncludeLiberalArtsColleges}
+        onRagEnabledChange={(value) => {
+          // If the backend says LLM is unavailable, keep it disabled.
+          if (!ragAvailable) {
+            setRagEnabled(false)
+            return
+          }
+          setRagEnabled(value)
+        }}
         onSatFilterChange={setSatFilter}
         onActFilterChange={setActFilter}
         onGpaFilterChange={setGpaFilter}
@@ -242,7 +238,6 @@ function App(): JSX.Element {
         onHoverSchool={setHoveredSchoolId}
         onPageChange={handlePageChange}
         onOpenSchoolInfo={setInfoSchool}
-        onChatSearchTerm={handleChatSearchTerm}
       />
       {infoSchool && <SchoolInfoModal school={infoSchool} onClose={() => setInfoSchool(null)} />}
     </>

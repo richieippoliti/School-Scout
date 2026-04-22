@@ -10,6 +10,12 @@ from models import db, School
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
+from semantic_filters import (
+    SemanticFilters,
+    extract_semantic_filters,
+    school_passes_semantic_filters,
+    semantic_preference_boost,
+)
 
 # AI toggle
 USE_LLM = False
@@ -414,6 +420,7 @@ def school_search(
     user_act: float | None = None,
     user_gpa: float | None = None,
     user_gpa_out_of: float | None = None,
+    semantic_filters: SemanticFilters | None = None,
 ):
     global _vectorizer, _tfidf_matrix, _indexed_schools, _svd, _doc_lsa
     if not query or not query.strip():
@@ -438,16 +445,44 @@ def school_search(
     ):
         user_gpa_on_4 = (user_gpa / user_gpa_out_of) * 4.0
 
+    # Deterministic semantic filters (region/weather) extracted from the query by default.
+    sf = semantic_filters if semantic_filters is not None else extract_semantic_filters(query)
+
+    # Prefer filtering the candidate set BEFORE ranking when the user expressed a hard preference.
+    candidate_indices: list[int] = []
+    candidate_schools: list[School] = []
+    for i, school in enumerate(_indexed_schools):
+        if not _school_passes_dataset_filter(school, include_national, include_liberal_arts):
+            continue
+        if not _school_passes_stats_filter(school, user_sat, user_act, user_gpa_on_4):
+            continue
+        if not school_passes_semantic_filters(
+            school_state=getattr(school, "state", None),
+            school_latitude=getattr(school, "latitude", None),
+            filters=sf,
+        ):
+            continue
+        candidate_indices.append(i)
+        candidate_schools.append(school)
+
+    if not candidate_indices:
+        return []
+
     query_vec = _vectorizer.transform([query.strip()])
     if m == "svd" and _svd is not None and _doc_lsa is not None:
         q_lsa = _svd.transform(query_vec)
-        scores = cosine_similarity(q_lsa, _doc_lsa).flatten()
+        doc_mat = _doc_lsa[candidate_indices, :]
+        scores = cosine_similarity(q_lsa, doc_mat).flatten()
     else:
-        scores = cosine_similarity(query_vec, _tfidf_matrix).flatten()
+        doc_mat = _tfidf_matrix[candidate_indices, :]
+        scores = cosine_similarity(query_vec, doc_mat).flatten()
 
     ranked = sorted(
-        ((score, school) for score, school in zip(scores, _indexed_schools)
-         if score >= threshold), # Results below threshold discarded
+        (
+            (float(score) + semantic_preference_boost(school_latitude=getattr(school, "latitude", None), filters=sf), school)
+            for score, school in zip(scores, candidate_schools)
+            if float(score) >= threshold
+        ),  # Results below threshold discarded
         key=lambda x: x[0],
         reverse=True,
     )
@@ -476,6 +511,8 @@ def school_search(
             "name": school.name,
             "descr": school.summary,
             "score": round(float(score), 4),
+            "city": getattr(school, "city", None),
+            "state": getattr(school, "state", None),
             "latitude": _json_float(school.latitude),
             "longitude": _json_float(school.longitude),
             "acceptanceRate": _json_float(school.acceptance_rate),
@@ -490,10 +527,7 @@ def school_search(
 
     out = []
     for score, school in ranked:
-        if not _school_passes_dataset_filter(school, include_national, include_liberal_arts):
-            continue
-        if not _school_passes_stats_filter(school, user_sat, user_act, user_gpa_on_4):
-            continue
+        # Dataset/stats/semantic filters were applied before ranking. We keep this loop focused on output.
         out.append(_school_payload(score, school))
         if len(out) >= top_k:
             break
@@ -509,7 +543,9 @@ def register_routes(app):
             return send_from_directory(app.static_folder, 'index.html')
     @app.route("/api/config")
     def config():
-        return jsonify({"use_llm": USE_LLM})
+        # The app always supports the RAG route; it will simply omit `llm_answer`
+        # if no API key is configured.
+        return jsonify({"use_llm": True, "llm_available": bool(os.getenv("SPARK_API_KEY"))})
 
     @app.route("/api/schools")
     def schools_search():
@@ -538,6 +574,6 @@ def register_routes(app):
             )
         )
 
-    if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, school_search)
+    # Register LLM-backed RAG endpoints. They degrade gracefully if the LLM is unavailable.
+    from llm_routes import register_llm_routes
+    register_llm_routes(app, school_search)
