@@ -1,4 +1,4 @@
-import { ConfigResponse, RawSchool, School, SchoolSearchApiOptions, SearchMetric } from '../types'
+import { ConfigResponse, RawSchool, School, SchoolSearchApiOptions, SearchMetric, LLMSearchResult } from '../types'
 
 function finiteNumber(value: unknown): number | undefined {
   if (value == null || value === '') return undefined
@@ -89,4 +89,34 @@ export async function fetchSchools(
 
   const data = (await response.json()) as RawSchool[]
   return data.map(toSchool)
+}
+
+export async function fetchSchoolsWithLLM(
+  query: string,
+  metric: SearchMetric,
+  options: SchoolSearchApiOptions = {},
+): Promise<LLMSearchResult> {
+  const response = await fetch('/api/llm-search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query,
+      metric,
+      includeNational: options.includeNational ?? true,
+      includeLiberalArts: options.includeLiberalArts ?? true,
+      sat: options.sat ?? null,
+      act: options.act ?? null,
+      gpa: options.gpa ?? null,
+      gpaOutOf: options.gpaOutOf ?? null,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`LLM search failed (${response.status})`)
+  }
+  const data = await response.json()
+  return {
+    schools: (data.schools as RawSchool[]).map(toSchool),
+    extractedQuery: data.extractedQuery ?? '',
+    llmSummary: data.llmSummary ?? '',
+  }
 }

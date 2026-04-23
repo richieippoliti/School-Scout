@@ -67,6 +67,12 @@ export interface ConfigResponse {
   use_llm: boolean;
 }
 
+export interface LLMSearchResult {
+  schools: School[];
+  extractedQuery: string;
+  llmSummary: string;
+}
+
 export interface RawSchool {
   id?: string | number;
   title?: string;

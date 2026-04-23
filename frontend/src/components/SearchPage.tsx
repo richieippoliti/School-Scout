@@ -1,4 +1,3 @@
-import Chat from '../Chat'
 import { School, SearchMetric } from '../types'
 import MapPane from './MapPane'
 import ResultsPanel from './ResultsPanel'
@@ -35,7 +34,8 @@ interface SearchPageProps {
   onHoverSchool: (schoolId: string | null) => void;
   onPageChange: (page: number) => void;
   onOpenSchoolInfo: (school: School) => void;
-  onChatSearchTerm: (term: string) => void;
+  llmSummary: string;
+  extractedQuery: string;
 }
 
 function SearchPage({
@@ -68,7 +68,8 @@ function SearchPage({
   onHoverSchool,
   onPageChange,
   onOpenSchoolInfo,
-  onChatSearchTerm,
+  llmSummary,
+  extractedQuery,
 }: SearchPageProps): JSX.Element {
   return (
     <div className={`search-layout ${useLlm ? 'llm-mode' : ''}`}>
@@ -127,7 +128,17 @@ function SearchPage({
           onGpaOutOfChange={onGpaOutOfFilterChange}
         />
 
-        {useLlm && <Chat onSearchTerm={onChatSearchTerm} />}
+        {useLlm && llmSummary && (
+          <div className="llm-summary-banner">
+            <span className="llm-summary-icon">🤖</span>
+            <div className="llm-summary-body">
+              <p className="llm-summary-text">{llmSummary}</p>
+              {extractedQuery && (
+                <p className="llm-extracted-query">Searched for: <em>{extractedQuery}</em></p>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
     </div>
   )

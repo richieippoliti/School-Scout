@@ -12,8 +12,8 @@ from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 
 # AI toggle
-USE_LLM = False
-# USE_LLM = True
+# USE_LLM = False
+USE_LLM = True
 _vectorizer: TfidfVectorizer | None = None
 _tfidf_matrix = None
 _svd: TruncatedSVD | None = None
@@ -240,7 +240,6 @@ def _build_index():
         _doc_lsa = None
         return
     
-    # Build corpus from all reviews for each school, not just the summary
     corpus = []
     for school in _indexed_schools:
         reviews_text = ""
@@ -250,8 +249,6 @@ def _build_index():
                 reviews_text = " ".join([review.get('text', '') for review in reviews if review.get('text')])
             except (json.JSONDecodeError, TypeError):
                 reviews_text = ""
-        
-        # Combine reviews with summary for better coverage
         combined_text = (reviews_text + " " + (school.summary or "")).strip()
         corpus.append(_apply_negation_marking(combined_text))
     
@@ -267,21 +264,18 @@ def _build_index():
     _svd = None
     _doc_lsa = None
     n_samples, n_features = _tfidf_matrix.shape
-    # LSA / truncated SVD on TF-IDF (same vocabulary; query projected into topic space)
     max_components = min(n_samples - 1, n_features - 1, 128)
     if max_components >= 1:
         _svd = TruncatedSVD(n_components=max_components, random_state=42)
         _doc_lsa = _svd.fit_transform(_tfidf_matrix)
     
 def _get_top_query_terms(query_vec, top_n: int = 8) -> list:
-    """return the highest weighted vocabulary terms from a query TF-IDF vector."""
     feature_names = _vectorizer.get_feature_names_out()
     cx = query_vec.tocsr()
     if cx.nnz == 0:
         return []
     weights = [(feature_names[j], float(cx[0, j])) for j in cx.indices]
     weights.sort(key=lambda x: x[1], reverse=True)
-    # Prefer unigrams (readable words); also grab top bigrams for specificity
     unigrams = [w for w, _ in weights if ' ' not in w and not w.startswith('NOT_')]
     bigrams  = [w for w, _ in weights if ' '     in w and not w.startswith('NOT_')]
     return (unigrams + bigrams)[:top_n]
@@ -539,5 +533,5 @@ def register_routes(app):
         )
 
     if USE_LLM:
-        from llm_routes import register_chat_route
-        register_chat_route(app, school_search)
+        from llm_routes import register_llm_search_route
+        register_llm_search_route(app, school_search)

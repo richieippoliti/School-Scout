@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './App.css'
 import { School, SchoolSearchApiOptions, SearchMetric } from './types'
-import { fetchConfig, fetchSchools } from './api/schools'
+import { fetchConfig, fetchSchools, fetchSchoolsWithLLM } from './api/schools'
 import SearchPage from './components/SearchPage'
 import SchoolInfoModal from './components/SchoolInfoModal'
 
@@ -32,6 +32,10 @@ function buildApiOptions(
 function App(): JSX.Element {
   const RESULTS_PER_PAGE = 5
   const [useLlm, setUseLlm] = useState<boolean | null>(null)
+  const [llmSummary, setLlmSummary] = useState<string>('')
+  const [extractedQuery, setExtractedQuery] = useState<string>('')
+  const useLlmRef = useRef(useLlm)
+  useLlmRef.current = useLlm
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [searchMetric, setSearchMetric] = useState<SearchMetric>('tfidf')
   const [includeNationalUniversities, setIncludeNationalUniversities] = useState(true)
@@ -76,11 +80,21 @@ function App(): JSX.Element {
 
       setLoading(true)
       try {
-        const data = await fetchSchools(trimmedValue, metric, apiOptions)
-        setSchools(data)
-        setCurrentPage(1)
-        setSelectedSchoolId(data[0]?.id ?? null)
-        setHoveredSchoolId(null)
+        if (useLlmRef.current) {
+          const result = await fetchSchoolsWithLLM(trimmedValue, metric, apiOptions)
+          setSchools(result.schools)
+          setLlmSummary(result.llmSummary)
+          setExtractedQuery(result.extractedQuery)
+          setCurrentPage(1)
+          setSelectedSchoolId(result.schools[0]?.id ?? null)
+          setHoveredSchoolId(null)
+        } else {
+          const data = await fetchSchools(trimmedValue, metric, apiOptions)
+          setSchools(data)
+          setCurrentPage(1)
+          setSelectedSchoolId(data[0]?.id ?? null)
+          setHoveredSchoolId(null)
+        }
       } catch {
         setSchools([])
         setSelectedSchoolId(null)
@@ -125,22 +139,6 @@ function App(): JSX.Element {
         ),
       )
     }
-  }
-
-  const handleChatSearchTerm = (term: string): void => {
-    setSearchTerm(term)
-    void executeSearch(
-      term,
-      searchMetric,
-      buildApiOptions(
-        includeNationalUniversities,
-        includeLiberalArtsColleges,
-        satFilter,
-        actFilter,
-        gpaFilter,
-        gpaOutOfFilter,
-      ),
-    )
   }
 
   useEffect(() => {
@@ -242,7 +240,8 @@ function App(): JSX.Element {
         onHoverSchool={setHoveredSchoolId}
         onPageChange={handlePageChange}
         onOpenSchoolInfo={setInfoSchool}
-        onChatSearchTerm={handleChatSearchTerm}
+        llmSummary={llmSummary}
+        extractedQuery={extractedQuery}
       />
       {infoSchool && <SchoolInfoModal school={infoSchool} onClose={() => setInfoSchool(null)} />}
     </>
