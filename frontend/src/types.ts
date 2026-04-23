@@ -65,16 +65,6 @@ export interface SearchState {
 
 export interface ConfigResponse {
   use_llm: boolean;
-  llm_available?: boolean;
-}
-
-export interface RagSearchResponse {
-  original_query: string;
-  rewritten_query?: string | null;
-  results: RawSchool[];
-  llm_answer?: string | null;
-  applied_filters?: unknown;
-  metadata?: unknown;
 }
 
 export interface LLMSearchResult {
