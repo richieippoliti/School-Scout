@@ -64,7 +64,6 @@ def register_llm_search_route(app, school_search):
     def llm_search():
         data = request.get_json() or {}
         user_query = (data.get("query") or "").strip()
-        metric = (data.get("metric") or "tfidf").strip()
 
         if not user_query:
             return jsonify({"error": "query is required"}), 400
@@ -83,7 +82,6 @@ def register_llm_search_route(app, school_search):
 
         schools = school_search(
             extracted_query,
-            metric=metric,
             include_national=data.get("includeNational", True),
             include_liberal_arts=data.get("includeLiberalArts", True),
             user_sat=data.get("sat"),

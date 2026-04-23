@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './App.css'
-import { School, SchoolSearchApiOptions, SearchMetric } from './types'
+import { School, SchoolSearchApiOptions } from './types'
 import { fetchConfig, fetchSchools, fetchSchoolsWithLLM } from './api/schools'
 import SearchPage from './components/SearchPage'
 import SchoolInfoModal from './components/SchoolInfoModal'
@@ -31,13 +31,13 @@ function buildApiOptions(
 
 function App(): JSX.Element {
   const RESULTS_PER_PAGE = 5
-  const [useLlm, setUseLlm] = useState<boolean | null>(null)
+  const [ragLlmFeedbackAvailable, setRagLlmFeedbackAvailable] = useState<boolean | null>(null)
+  const [ragLlmFeedbackEnabled, setRagLlmFeedbackEnabled] = useState<boolean>(false)
   const [llmSummary, setLlmSummary] = useState<string>('')
   const [extractedQuery, setExtractedQuery] = useState<string>('')
-  const useLlmRef = useRef(useLlm)
-  useLlmRef.current = useLlm
+  const ragEnabledRef = useRef(ragLlmFeedbackEnabled)
+  ragEnabledRef.current = ragLlmFeedbackEnabled
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [searchMetric, setSearchMetric] = useState<SearchMetric>('tfidf')
   const [includeNationalUniversities, setIncludeNationalUniversities] = useState(true)
   const [includeLiberalArtsColleges, setIncludeLiberalArtsColleges] = useState(true)
   const [satFilter, setSatFilter] = useState('')
@@ -53,20 +53,23 @@ function App(): JSX.Element {
   const [infoSchool, setInfoSchool] = useState<School | null>(null)
   const searchTermRef = useRef(searchTerm)
   searchTermRef.current = searchTerm
-  const searchMetricRef = useRef(searchMetric)
-  searchMetricRef.current = searchMetric
 
   useEffect(() => {
     fetchConfig()
-      .then((data) => setUseLlm(data.use_llm))
+      .then((data) => {
+        const available = Boolean(data.use_llm)
+        setRagLlmFeedbackAvailable(available)
+        setRagLlmFeedbackEnabled(available)
+      })
       .catch(() => {
-        setUseLlm(false)
+        setRagLlmFeedbackAvailable(false)
+        setRagLlmFeedbackEnabled(false)
         setError('Unable to load app configuration.')
       })
   }, [])
 
   const executeSearch = useCallback(
-    async (value: string, metric: SearchMetric, apiOptions: SchoolSearchApiOptions): Promise<void> => {
+    async (value: string, apiOptions: SchoolSearchApiOptions): Promise<void> => {
       const trimmedValue = value.trim()
       setError(null)
 
@@ -75,13 +78,15 @@ function App(): JSX.Element {
         setCurrentPage(1)
         setSelectedSchoolId(null)
         setHoveredSchoolId(null)
+        setLlmSummary('')
+        setExtractedQuery('')
         return
       }
 
       setLoading(true)
       try {
-        if (useLlmRef.current) {
-          const result = await fetchSchoolsWithLLM(trimmedValue, metric, apiOptions)
+        if (ragEnabledRef.current) {
+          const result = await fetchSchoolsWithLLM(trimmedValue, apiOptions)
           setSchools(result.schools)
           setLlmSummary(result.llmSummary)
           setExtractedQuery(result.extractedQuery)
@@ -89,8 +94,10 @@ function App(): JSX.Element {
           setSelectedSchoolId(result.schools[0]?.id ?? null)
           setHoveredSchoolId(null)
         } else {
-          const data = await fetchSchools(trimmedValue, metric, apiOptions)
+          const data = await fetchSchools(trimmedValue, apiOptions)
           setSchools(data)
+          setLlmSummary('')
+          setExtractedQuery('')
           setCurrentPage(1)
           setSelectedSchoolId(data[0]?.id ?? null)
           setHoveredSchoolId(null)
@@ -110,7 +117,6 @@ function App(): JSX.Element {
   const handleSubmitSearch = (): void => {
     void executeSearch(
       searchTerm,
-      searchMetric,
       buildApiOptions(
         includeNationalUniversities,
         includeLiberalArtsColleges,
@@ -122,13 +128,13 @@ function App(): JSX.Element {
     )
   }
 
-  const handleSearchMetricChange = (metric: SearchMetric): void => {
-    setSearchMetric(metric)
+  const handleRagLlmFeedbackChange = (enabled: boolean): void => {
+    if (!ragLlmFeedbackAvailable) return
+    setRagLlmFeedbackEnabled(enabled)
     const trimmed = searchTerm.trim()
     if (trimmed !== '') {
       void executeSearch(
         trimmed,
-        metric,
         buildApiOptions(
           includeNationalUniversities,
           includeLiberalArtsColleges,
@@ -149,7 +155,6 @@ function App(): JSX.Element {
     const timerId = window.setTimeout(() => {
       void executeSearch(
         trimmed,
-        searchMetricRef.current,
         buildApiOptions(
           includeNationalUniversities,
           includeLiberalArtsColleges,
@@ -206,14 +211,15 @@ function App(): JSX.Element {
     }
   }
 
-  if (useLlm === null) return <></>
+  if (ragLlmFeedbackAvailable === null) return <></>
 
   return (
     <>
       <SearchPage
-        useLlm={useLlm}
+        useLlm={ragLlmFeedbackEnabled}
+        ragLlmFeedbackAvailable={ragLlmFeedbackAvailable}
+        ragLlmFeedbackEnabled={ragLlmFeedbackEnabled}
         query={searchTerm}
-        searchMetric={searchMetric}
         includeNationalUniversities={includeNationalUniversities}
         includeLiberalArtsColleges={includeLiberalArtsColleges}
         satFilter={satFilter}
@@ -229,7 +235,7 @@ function App(): JSX.Element {
         hoveredSchoolId={hoveredSchoolId}
         onQueryChange={setSearchTerm}
         onSubmitSearch={handleSubmitSearch}
-        onSearchMetricChange={handleSearchMetricChange}
+        onRagLlmFeedbackChange={handleRagLlmFeedbackChange}
         onIncludeNationalChange={setIncludeNationalUniversities}
         onIncludeLiberalArtsChange={setIncludeLiberalArtsColleges}
         onSatFilterChange={setSatFilter}

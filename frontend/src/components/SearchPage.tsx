@@ -1,4 +1,4 @@
-import { School, SearchMetric } from '../types'
+import { School } from '../types'
 import MapPane from './MapPane'
 import ResultsPanel from './ResultsPanel'
 import SearchBar from './SearchBar'
@@ -6,8 +6,9 @@ import SearchFiltersPanel from './SearchFiltersPanel'
 
 interface SearchPageProps {
   useLlm: boolean;
+  ragLlmFeedbackAvailable: boolean;
+  ragLlmFeedbackEnabled: boolean;
   query: string;
-  searchMetric: SearchMetric;
   includeNationalUniversities: boolean;
   includeLiberalArtsColleges: boolean;
   satFilter: string;
@@ -23,7 +24,7 @@ interface SearchPageProps {
   hoveredSchoolId: string | null;
   onQueryChange: (value: string) => void;
   onSubmitSearch: () => void;
-  onSearchMetricChange: (metric: SearchMetric) => void;
+  onRagLlmFeedbackChange: (value: boolean) => void;
   onIncludeNationalChange: (value: boolean) => void;
   onIncludeLiberalArtsChange: (value: boolean) => void;
   onSatFilterChange: (value: string) => void;
@@ -40,8 +41,9 @@ interface SearchPageProps {
 
 function SearchPage({
   useLlm,
+  ragLlmFeedbackAvailable,
+  ragLlmFeedbackEnabled,
   query,
-  searchMetric,
   includeNationalUniversities,
   includeLiberalArtsColleges,
   satFilter,
@@ -57,7 +59,7 @@ function SearchPage({
   hoveredSchoolId,
   onQueryChange,
   onSubmitSearch,
-  onSearchMetricChange,
+  onRagLlmFeedbackChange,
   onIncludeNationalChange,
   onIncludeLiberalArtsChange,
   onSatFilterChange,
@@ -112,8 +114,9 @@ function SearchPage({
         </div>
 
         <SearchFiltersPanel
-          searchMetric={searchMetric}
-          onSearchMetricChange={onSearchMetricChange}
+          ragLlmFeedbackAvailable={ragLlmFeedbackAvailable}
+          ragLlmFeedbackEnabled={ragLlmFeedbackEnabled}
+          onRagLlmFeedbackChange={onRagLlmFeedbackChange}
           includeNationalUniversities={includeNationalUniversities}
           includeLiberalArtsColleges={includeLiberalArtsColleges}
           onIncludeNationalChange={onIncludeNationalChange}

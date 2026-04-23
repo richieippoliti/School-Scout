@@ -1,8 +1,7 @@
-import { SearchMetric } from '../types'
-
 export interface SearchFiltersPanelProps {
-  searchMetric: SearchMetric
-  onSearchMetricChange: (metric: SearchMetric) => void
+  ragLlmFeedbackEnabled: boolean
+  ragLlmFeedbackAvailable: boolean
+  onRagLlmFeedbackChange: (value: boolean) => void
   includeNationalUniversities: boolean
   includeLiberalArtsColleges: boolean
   onIncludeNationalChange: (value: boolean) => void
@@ -18,8 +17,9 @@ export interface SearchFiltersPanelProps {
 }
 
 function SearchFiltersPanel({
-  searchMetric,
-  onSearchMetricChange,
+  ragLlmFeedbackEnabled,
+  ragLlmFeedbackAvailable,
+  onRagLlmFeedbackChange,
   includeNationalUniversities,
   includeLiberalArtsColleges,
   onIncludeNationalChange,
@@ -38,23 +38,24 @@ function SearchFiltersPanel({
       <details className="filters-disclosure" open>
         <summary className="filters-disclosure-summary">Filters</summary>
         <div className="filters-disclosure-body">
-          <div className="filter-field">
-            <label className="metric-label" htmlFor="search-metric">
-              Ranking
-            </label>
-            <select
-              id="search-metric"
-              className="metric-select"
-              value={searchMetric}
-              onChange={(e) => {
-                onSearchMetricChange(e.target.value as SearchMetric)
-              }}
-              aria-label="Search ranking metric"
-            >
-              <option value="tfidf">TF–IDF (cosine)</option>
-              <option value="svd">SVD (TF–IDF + truncated SVD)</option>
-            </select>
-          </div>
+          <fieldset className="filter-field institution-fieldset">
+            <legend className="metric-label">RAG</legend>
+            <p className="filters-hint" id="rag-llm-hint">
+              If enabled, search results include LLM-based query rewriting + a short explanation.
+            </p>
+            <div className="checkbox-row">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={ragLlmFeedbackEnabled}
+                  onChange={(e) => onRagLlmFeedbackChange(e.target.checked)}
+                  disabled={!ragLlmFeedbackAvailable}
+                  aria-describedby="rag-llm-hint"
+                />
+                <span>RAG LLM Feedback</span>
+              </label>
+            </div>
+          </fieldset>
 
           <fieldset className="filter-field institution-fieldset">
             <legend className="metric-label">School types</legend>

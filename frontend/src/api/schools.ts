@@ -1,4 +1,4 @@
-import { ConfigResponse, RawSchool, School, SchoolSearchApiOptions, SearchMetric, LLMSearchResult } from '../types'
+import { ConfigResponse, RawSchool, School, SchoolSearchApiOptions, LLMSearchResult } from '../types'
 
 function finiteNumber(value: unknown): number | undefined {
   if (value == null || value === '') return undefined
@@ -56,10 +56,9 @@ export async function fetchConfig(): Promise<ConfigResponse> {
 
 export async function fetchSchools(
   query: string,
-  metric: SearchMetric = 'tfidf',
   options: SchoolSearchApiOptions = {},
 ): Promise<School[]> {
-  const params = new URLSearchParams({ query, metric })
+  const params = new URLSearchParams({ query, metric: 'svd' })
   if (options.includeNational === false) {
     params.set('include_national', '0')
   } else {
@@ -93,7 +92,6 @@ export async function fetchSchools(
 
 export async function fetchSchoolsWithLLM(
   query: string,
-  metric: SearchMetric,
   options: SchoolSearchApiOptions = {},
 ): Promise<LLMSearchResult> {
   const response = await fetch('/api/llm-search', {
@@ -101,7 +99,6 @@ export async function fetchSchoolsWithLLM(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query,
-      metric,
       includeNational: options.includeNational ?? true,
       includeLiberalArts: options.includeLiberalArts ?? true,
       sat: options.sat ?? null,

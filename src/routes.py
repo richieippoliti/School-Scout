@@ -420,10 +420,6 @@ def school_search(
     if not include_national and not include_liberal_arts:
         return []
 
-    m = (metric or "tfidf").strip().lower()
-    if m not in ("tfidf", "svd"):
-        m = "tfidf"
-
     user_gpa_on_4 = None
     if (
         user_gpa is not None
@@ -433,7 +429,9 @@ def school_search(
         user_gpa_on_4 = (user_gpa / user_gpa_out_of) * 4.0
 
     query_vec = _vectorizer.transform([query.strip()])
-    if m == "svd" and _svd is not None and _doc_lsa is not None:
+    # Always prefer SVD (LSA) scoring when available; fall back to raw TF-IDF cosine.
+    # The `metric` parameter is kept for backwards compatibility but ignored.
+    if _svd is not None and _doc_lsa is not None:
         q_lsa = _svd.transform(query_vec)
         scores = cosine_similarity(q_lsa, _doc_lsa).flatten()
     else:
@@ -508,7 +506,6 @@ def register_routes(app):
     @app.route("/api/schools")
     def schools_search():
         text = request.args.get("query", "")
-        metric = request.args.get("metric", "tfidf")
         include_national = _parse_bool_param(
             request.args.get("include_national"), True
         )
@@ -522,7 +519,6 @@ def register_routes(app):
         return jsonify(
             school_search(
                 text,
-                metric=metric,
                 include_national=include_national,
                 include_liberal_arts=include_liberal_arts,
                 user_sat=user_sat,

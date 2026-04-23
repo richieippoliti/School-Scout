@@ -1,5 +1,5 @@
-/** Retrieval / ranking metric: raw TF-IDF cosine, or SVD with Sentiment Analysis (TF-IDF + truncated SVD). */
-export type SearchMetric = 'tfidf' | 'svd';
+/** Ranking metric is always SVD/LSA on the backend. */
+export type SearchMetric = 'svd';
 
 export interface School {
   id: string;
