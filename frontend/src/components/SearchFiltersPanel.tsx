@@ -1,12 +1,11 @@
-import { SearchMetric } from '../types'
-
 export interface SearchFiltersPanelProps {
-  searchMetric: SearchMetric
-  onSearchMetricChange: (metric: SearchMetric) => void
   includeNationalUniversities: boolean
   includeLiberalArtsColleges: boolean
   onIncludeNationalChange: (value: boolean) => void
   onIncludeLiberalArtsChange: (value: boolean) => void
+  ragEnabled: boolean
+  ragAvailable: boolean
+  onRagEnabledChange: (value: boolean) => void
   sat: string
   act: string
   gpa: string
@@ -18,12 +17,13 @@ export interface SearchFiltersPanelProps {
 }
 
 function SearchFiltersPanel({
-  searchMetric,
-  onSearchMetricChange,
   includeNationalUniversities,
   includeLiberalArtsColleges,
   onIncludeNationalChange,
   onIncludeLiberalArtsChange,
+  ragEnabled,
+  ragAvailable,
+  onRagEnabledChange,
   sat,
   act,
   gpa,
@@ -39,22 +39,30 @@ function SearchFiltersPanel({
         <summary className="filters-disclosure-summary">Filters</summary>
         <div className="filters-disclosure-body">
           <div className="filter-field">
-            <label className="metric-label" htmlFor="search-metric">
-              Ranking
-            </label>
-            <select
-              id="search-metric"
-              className="metric-select"
-              value={searchMetric}
-              onChange={(e) => {
-                onSearchMetricChange(e.target.value as SearchMetric)
-              }}
-              aria-label="Search ranking metric"
-            >
-              <option value="tfidf">TF–IDF (cosine)</option>
-              <option value="svd">SVD (TF–IDF + truncated SVD)</option>
-            </select>
+            <span className="metric-label">Ranking</span>
+            <p className="filters-hint" id="ranking-hint">
+              Ranking is fixed to <strong>SVD</strong> (TF–IDF + truncated SVD).
+            </p>
           </div>
+
+          <fieldset className="filter-field institution-fieldset">
+            <legend className="metric-label">LLM / RAG</legend>
+            <p className="filters-hint" id="rag-hint">
+              When enabled, results are returned as usual, plus a grounded explanation based on the retrieved schools.
+            </p>
+            <div className="checkbox-row">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={ragEnabled}
+                  onChange={(e) => onRagEnabledChange(e.target.checked)}
+                  aria-describedby="rag-hint"
+                  disabled={!ragAvailable}
+                />
+                <span>Enable LLM / RAG {ragAvailable ? '' : '(unavailable)'}</span>
+              </label>
+            </div>
+          </fieldset>
 
           <fieldset className="filter-field institution-fieldset">
             <legend className="metric-label">School types</legend>

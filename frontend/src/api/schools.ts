@@ -28,6 +28,8 @@ function toSchool(raw: RawSchool, index: number): School {
     descr,
     score,
     name: optionalString(raw.name),
+    city: optionalString(raw.city),
+    state: optionalString(raw.state),
     latitude: finiteNumber(raw.latitude),
     longitude: finiteNumber(raw.longitude),
     matchScore: finiteNumber(raw.matchScore),

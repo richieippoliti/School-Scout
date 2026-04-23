@@ -37,7 +37,6 @@ function App(): JSX.Element {
   const useLlmRef = useRef(useLlm)
   useLlmRef.current = useLlm
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [searchMetric, setSearchMetric] = useState<SearchMetric>('tfidf')
   const [includeNationalUniversities, setIncludeNationalUniversities] = useState(true)
   const [includeLiberalArtsColleges, setIncludeLiberalArtsColleges] = useState(true)
   const [satFilter, setSatFilter] = useState('')
@@ -45,6 +44,8 @@ function App(): JSX.Element {
   const [gpaFilter, setGpaFilter] = useState('')
   const [gpaOutOfFilter, setGpaOutOfFilter] = useState('')
   const [schools, setSchools] = useState<School[]>([])
+  const [llmAnswer, setLlmAnswer] = useState<string | null>(null)
+  const [rewrittenQuery, setRewrittenQuery] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
   const [hoveredSchoolId, setHoveredSchoolId] = useState<string | null>(null)
@@ -53,25 +54,32 @@ function App(): JSX.Element {
   const [infoSchool, setInfoSchool] = useState<School | null>(null)
   const searchTermRef = useRef(searchTerm)
   searchTermRef.current = searchTerm
-  const searchMetricRef = useRef(searchMetric)
-  searchMetricRef.current = searchMetric
 
   useEffect(() => {
     fetchConfig()
-      .then((data) => setUseLlm(data.use_llm))
+      .then((data) => {
+        const available = Boolean(data.llm_available)
+        setRagAvailable(available)
+        setRagEnabled(available)
+        setConfigLoaded(true)
+      })
       .catch(() => {
-        setUseLlm(false)
+        setRagAvailable(false)
+        setRagEnabled(false)
+        setConfigLoaded(true)
         setError('Unable to load app configuration.')
       })
   }, [])
 
   const executeSearch = useCallback(
-    async (value: string, metric: SearchMetric, apiOptions: SchoolSearchApiOptions): Promise<void> => {
+    async (value: string, apiOptions: SchoolSearchApiOptions): Promise<void> => {
       const trimmedValue = value.trim()
       setError(null)
 
       if (trimmedValue === '') {
         setSchools([])
+        setLlmAnswer(null)
+        setRewrittenQuery(null)
         setCurrentPage(1)
         setSelectedSchoolId(null)
         setHoveredSchoolId(null)
@@ -97,6 +105,8 @@ function App(): JSX.Element {
         }
       } catch {
         setSchools([])
+        setLlmAnswer(null)
+        setRewrittenQuery(null)
         setSelectedSchoolId(null)
         setHoveredSchoolId(null)
         setError('Search request failed. Please try again.')
@@ -104,7 +114,7 @@ function App(): JSX.Element {
         setLoading(false)
       }
     },
-    [],
+    [ragEnabled],
   )
 
   const handleSubmitSearch = (): void => {
@@ -149,7 +159,6 @@ function App(): JSX.Element {
     const timerId = window.setTimeout(() => {
       void executeSearch(
         trimmed,
-        searchMetricRef.current,
         buildApiOptions(
           includeNationalUniversities,
           includeLiberalArtsColleges,
@@ -206,16 +215,16 @@ function App(): JSX.Element {
     }
   }
 
-  if (useLlm === null) return <></>
+  if (!configLoaded) return <></>
 
   return (
     <>
       <SearchPage
-        useLlm={useLlm}
         query={searchTerm}
-        searchMetric={searchMetric}
         includeNationalUniversities={includeNationalUniversities}
         includeLiberalArtsColleges={includeLiberalArtsColleges}
+        ragEnabled={ragEnabled}
+        ragAvailable={ragAvailable}
         satFilter={satFilter}
         actFilter={actFilter}
         gpaFilter={gpaFilter}
@@ -225,13 +234,22 @@ function App(): JSX.Element {
         totalPages={totalPages}
         loading={loading}
         error={error}
+        llmAnswer={llmAnswer}
+        rewrittenQuery={rewrittenQuery}
         selectedSchoolId={selectedSchoolId}
         hoveredSchoolId={hoveredSchoolId}
         onQueryChange={setSearchTerm}
         onSubmitSearch={handleSubmitSearch}
-        onSearchMetricChange={handleSearchMetricChange}
         onIncludeNationalChange={setIncludeNationalUniversities}
         onIncludeLiberalArtsChange={setIncludeLiberalArtsColleges}
+        onRagEnabledChange={(value) => {
+          // If the backend says LLM is unavailable, keep it disabled.
+          if (!ragAvailable) {
+            setRagEnabled(false)
+            return
+          }
+          setRagEnabled(value)
+        }}
         onSatFilterChange={setSatFilter}
         onActFilterChange={setActFilter}
         onGpaFilterChange={setGpaFilter}
